@@ -26,7 +26,7 @@ class TestFormatPacket:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB from:!a1b2c3d4 to:!e5f6g7h8 Text: Hello World!"
+        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:0 from:!a1b2c3d4 to:!e5f6g7h8 Text: Hello World!"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_position_packet(self):
@@ -46,7 +46,7 @@ class TestFormatPacket:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:2 -92dBm/8.0dB from:!12345678 to:!87654321 Position: lat=37.7749, lon=-122.4194"
+        expected = "[2023-10-19 16:00:00] Ch:2 -92dBm/8.0dB Hop:0 from:!12345678 to:!87654321 Position: lat=37.7749, lon=-122.4194"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_encrypted_packet(self):
@@ -63,7 +63,7 @@ class TestFormatPacket:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:1 -78dBm/15.2dB from:!aaaabbbb to:!ccccdddd Encrypted: length=24"
+        expected = "[2023-10-19 16:00:00] Ch:1 -78dBm/15.2dB Hop:0 from:!aaaabbbb to:!ccccdddd Encrypted: length=24"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_encrypted_packet_no_decoded(self):
@@ -80,7 +80,7 @@ class TestFormatPacket:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:3 -95dBm/5.5dB from:!11111111 to:!22222222 Encrypted: length=9"
+        expected = "[2023-10-19 16:00:00] Ch:3 -95dBm/5.5dB Hop:0 from:!11111111 to:!22222222 Encrypted: length=9"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_other_portnum_packet(self):
@@ -97,7 +97,7 @@ class TestFormatPacket:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:4 -88dBm/10.0dB from:!abcd1234 to:!5678efgh UNKNOWN_APP: [UNKNOWN_APP]"
+        expected = "[2023-10-19 16:00:00] Ch:4 -88dBm/10.0dB Hop:0 from:!abcd1234 to:!5678efgh UNKNOWN_APP: [UNKNOWN_APP]"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_other_portnum_packet_verbose(self):
@@ -114,7 +114,7 @@ class TestFormatPacket:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:4 -88dBm/10.0dB from:!abcd1234 to:!5678efgh UNKNOWN_APP: {'portnum': 'UNKNOWN_APP', 'data': {'some': 'data'}}"
+        expected = "[2023-10-19 16:00:00] Ch:4 -88dBm/10.0dB Hop:0 from:!abcd1234 to:!5678efgh UNKNOWN_APP: {'portnum': 'UNKNOWN_APP', 'data': {'some': 'data'}}"
         assert (
             capture._format_packet(packet, MockInterface(), False, verbose=True)
             == expected
@@ -126,7 +126,7 @@ class TestFormatPacket:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[1970-01-01 00:00:00] Ch:0 0dBm/0dB from:unknown to:unknown Encrypted: length=0"
+        expected = "[1970-01-01 00:00:00] Ch:0 0dBm/0dB Hop:0 from:unknown to:unknown Encrypted: length=0"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_empty_text_message(self):
@@ -143,7 +143,7 @@ class TestFormatPacket:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:1 -80dBm/12.0dB from:!test1234 to:!dest5678 Text: "
+        expected = "[2023-10-19 16:00:00] Ch:1 -80dBm/12.0dB Hop:0 from:!test1234 to:!dest5678 Text: "
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_position_packet_missing_coordinates(self):
@@ -160,7 +160,7 @@ class TestFormatPacket:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:2 -90dBm/7.5dB from:!pos12345 to:!target678 Position: lat=0, lon=0"
+        expected = "[2023-10-19 16:00:00] Ch:2 -90dBm/7.5dB Hop:0 from:!pos12345 to:!target678 Position: lat=0, lon=0"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_decoded_with_empty_portnum(self):
@@ -178,7 +178,7 @@ class TestFormatPacket:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:3 -85dBm/9.0dB from:!empty1234 to:!empty5678 Encrypted: length=4"
+        expected = "[2023-10-19 16:00:00] Ch:3 -85dBm/9.0dB Hop:0 from:!empty1234 to:!empty5678 Encrypted: length=4"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
 
@@ -327,7 +327,7 @@ class TestNodeResolution:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6g7h8) Text: Hello!"
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB Hop:0 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6g7h8) Text: Hello!"
         assert capture._format_packet(packet, mock_interface, False) == expected
 
     def test_node_resolution_unknown_to_id_fallback(self):
@@ -348,7 +348,7 @@ class TestNodeResolution:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB from:Alice Node (!a1b2c3d4) to:!unknown123 Text: Hello!"
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB Hop:0 from:Alice Node (!a1b2c3d4) to:!unknown123 Text: Hello!"
         assert capture._format_packet(packet, mock_interface, False) == expected
 
     def test_node_resolution_disabled(self):
@@ -372,7 +372,7 @@ class TestNodeResolution:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB from:!a1b2c3d4 to:!e5f6g7h8 Text: Hello!"
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB Hop:0 from:!a1b2c3d4 to:!e5f6g7h8 Text: Hello!"
         assert capture._format_packet(packet, mock_interface, True) == expected
 
     def test_node_resolution_no_interface(self):
@@ -389,7 +389,7 @@ class TestNodeResolution:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB from:!a1b2c3d4 to:!e5f6g7h8 Text: Hello!"
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB Hop:0 from:!a1b2c3d4 to:!e5f6g7h8 Text: Hello!"
         assert capture._format_packet(packet, None, False) == expected
 
     def test_node_resolution_missing_user_data(self):
@@ -415,7 +415,7 @@ class TestNodeResolution:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB from:!a1b2c3d4 to:!e5f6g7h8 Text: Hello!"
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB Hop:0 from:!a1b2c3d4 to:!e5f6g7h8 Text: Hello!"
         assert capture._format_packet(packet, mock_interface, False) == expected
 
 
@@ -443,7 +443,7 @@ class TestNewFormattingFeatures:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6g7h8) Text: Hello World!"
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB Hop:0 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6g7h8) Text: Hello World!"
         assert capture._format_packet(packet, mock_interface, False) == expected
 
     def test_new_format_with_unresolved_names(self):
@@ -468,7 +468,7 @@ class TestNewFormattingFeatures:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:2 -90dBm/8.5dB from:Known User (!known1234) to:!unknown567 Text: Testing unresolved"
+        expected = "[2023-10-19 16:00:00] Ch:2 -90dBm/8.5dB Hop:0 from:Known User (!known1234) to:!unknown567 Text: Testing unresolved"
         assert capture._format_packet(packet, mock_interface, False) == expected
 
     def test_new_format_with_no_resolve_flag(self):
@@ -497,7 +497,7 @@ class TestNewFormattingFeatures:
         mock_args = Mock()
         capture = MeshCap(mock_args)
         # With no_resolve=True, should only show raw IDs despite having resolvable names
-        expected = "[2023-10-19 16:00:00] Ch:3 -88dBm/10.2dB from:!user12345 to:!user67890 Position: lat=40.7128, lon=-74.006"
+        expected = "[2023-10-19 16:00:00] Ch:3 -88dBm/10.2dB Hop:0 from:!user12345 to:!user67890 Position: lat=40.7128, lon=-74.006"
         assert capture._format_packet(packet, mock_interface, True) == expected
 
     def test_format_packet_with_from_and_to(self):
@@ -516,7 +516,7 @@ class TestNewFormattingFeatures:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB from:!a1b2c3d4 to:!e5f6g7h8 hop_from:!075bcd15 hop_to:!3ade68b1 Text: Hello with from/to!"
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB Hop:0 from:!a1b2c3d4 to:!e5f6g7h8 hop_from:!075bcd15 hop_to:!3ade68b1 Text: Hello with from/to!"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_format_packet_with_source_and_dest(self):
@@ -540,7 +540,7 @@ class TestNewFormattingFeatures:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:2 -90dBm/8.5dB from:!a1b2c3d4 to:!e5f6g7h8 hop_from:!069f6bc7 hop_to:!0d3ed78e source:!13de4355 dest:!1a7daf1c Text: Message with routing info"
+        expected = "[2023-10-19 16:00:00] Ch:2 -90dBm/8.5dB Hop:0 from:!a1b2c3d4 to:!e5f6g7h8 hop_from:!069f6bc7 hop_to:!0d3ed78e source:!13de4355 dest:!1a7daf1c Text: Message with routing info"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_format_packet_without_source_and_dest(self):
@@ -563,7 +563,7 @@ class TestNewFormattingFeatures:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:3 -85dBm/10.0dB from:!test1234 to:!dest5678 hop_from:!211d1ae3 hop_to:!27bc86aa Position: lat=37.7749, lon=-122.4194"
+        expected = "[2023-10-19 16:00:00] Ch:3 -85dBm/10.0dB Hop:0 from:!test1234 to:!dest5678 hop_from:!211d1ae3 hop_to:!27bc86aa Position: lat=37.7749, lon=-122.4194"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_format_packet_all_address_fields_resolvable(self):
@@ -596,7 +596,7 @@ class TestNewFormattingFeatures:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB from:Alice Node (!aaaaaaaa) to:Bob Node (!bbbbbbbb) source:Charlie Node (!cccccccc) dest:Delta Node (!dddddddd) Text: Full routing example"
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB Hop:0 from:Alice Node (!aaaaaaaa) to:Bob Node (!bbbbbbbb) source:Charlie Node (!cccccccc) dest:Delta Node (!dddddddd) Text: Full routing example"
         assert capture._format_packet(packet, mock_interface, False) == expected
 
     def test_format_packet_mixed_resolvable_unresolvable(self):
@@ -628,7 +628,7 @@ class TestNewFormattingFeatures:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:2 -90dBm/8.5dB from:Known User (!known123) to:!unknown99 hop_from:!423a35c7 hop_to:!84746b8e source:!c6aea155 dest:!108e8d71c Position: lat=37.7749, lon=-122.4194"
+        expected = "[2023-10-19 16:00:00] Ch:2 -90dBm/8.5dB Hop:0 from:Known User (!known123) to:!unknown99 hop_from:!423a35c7 hop_to:!84746b8e source:!c6aea155 dest:!108e8d71c Position: lat=37.7749, lon=-122.4194"
         assert capture._format_packet(packet, mock_interface, False) == expected
 
     def test_format_packet_only_fromid_toid(self):
@@ -652,7 +652,7 @@ class TestNewFormattingFeatures:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:1 -80dBm/15.0dB from:Old Sender (!oldnode1) to:Old Receiver (!oldnode2) Text: Simple message"
+        expected = "[2023-10-19 16:00:00] Ch:1 -80dBm/15.0dB Hop:0 from:Old Sender (!oldnode1) to:Old Receiver (!oldnode2) Text: Simple message"
         assert capture._format_packet(packet, mock_interface, False) == expected
 
     def test_format_encrypted_packet_comprehensive(self):
@@ -669,5 +669,23 @@ class TestNewFormattingFeatures:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:4 -95dBm/3.2dB from:!encrypted1 to:!encrypted2 Encrypted: length=39"
+        expected = "[2023-10-19 16:00:00] Ch:4 -95dBm/3.2dB Hop:0 from:!encrypted1 to:!encrypted2 Encrypted: length=39"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
+
+    def test_format_packet_with_hop_limit(self):
+        """Test formatting a packet with hop_limit field."""
+        packet = {
+            "rxTime": 1697731200,
+            "channel": 1,
+            "rxRssi": -80,
+            "rxSnr": 12.0,
+            "fromId": "!a1b2c3d4",
+            "toId": "!e5f6g7h8",
+            "hopLimit": 3,
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Hello World!"},
+        }
+
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+        expected = "[2023-10-19 16:00:00] Ch:1 -80dBm/12.0dB Hop:3 from:!a1b2c3d4 to:!e5f6g7h8 Text: Hello World!"
         assert capture._format_packet(packet, MockInterface(), False) == expected

@@ -248,6 +248,9 @@ class MeshCap:
         rssi = packet.get("rxRssi", 0)
         snr = packet.get("rxSnr", 0)
         signal = f"{rssi}dBm/{snr}dB"
+        
+        hop_limit = packet.get("hopLimit", 0)
+        hop_info = f" Hop:{hop_limit}"
 
         # Build clean address string with proper labels
         address_parts = []
@@ -321,7 +324,7 @@ class MeshCap:
             packet_type = "Encrypted"
             payload = f"length={len(packet.get('encrypted', ''))}"
 
-        return f"[{timestamp}] Ch:{channel_hash} {signal} {address_str} {packet_type}: {payload}"
+        return f"[{timestamp}] Ch:{channel_hash} {signal}{hop_info} {address_str} {packet_type}: {payload}"
 
 
 def main():
