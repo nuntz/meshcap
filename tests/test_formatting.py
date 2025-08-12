@@ -214,7 +214,11 @@ class TestResolveNodeInfo:
         capture = MeshCap(mock_args)
 
         result = capture._resolve_node_info(mock_interface, 123456789, "to")
-        expected = {"label": "to", "value": "Bob Node (!075bcd15)"}
+        expected = {
+            "label": "to",
+            "value": "Bob Node (123456789)",
+            "node_number": 123456789,
+        }
         assert result == expected
 
     def test_resolve_node_info_unresolvable_string(self):
@@ -240,8 +244,8 @@ class TestResolveNodeInfo:
         result = capture._resolve_node_info(mock_interface, 987654321, "dest")
         expected = {
             "label": "dest",
-            "value": "!3ade68b1",
-        }  # hex representation of 987654321
+            "value": "987654321",
+        }  # node number representation
         assert result == expected
 
     def test_resolve_node_info_no_resolve_flag(self):
@@ -516,7 +520,7 @@ class TestNewFormattingFeatures:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB Hop:0 from:!a1b2c3d4 to:!e5f6g7h8 hop_from:!075bcd15 hop_to:!3ade68b1 Text: Hello with from/to!"
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB Hop:0 from:!a1b2c3d4 to:!e5f6g7h8 hop_from:123456789 hop_to:987654321 Text: Hello with from/to!"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_format_packet_with_source_and_dest(self):
@@ -540,7 +544,7 @@ class TestNewFormattingFeatures:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:2 -90dBm/8.5dB Hop:0 from:!a1b2c3d4 to:!e5f6g7h8 hop_from:!069f6bc7 hop_to:!0d3ed78e source:!13de4355 dest:!1a7daf1c Text: Message with routing info"
+        expected = "[2023-10-19 16:00:00] Ch:2 -90dBm/8.5dB Hop:0 from:!a1b2c3d4 to:!e5f6g7h8 hop_from:111111111 hop_to:222222222 source:333333333 dest:444444444 Text: Message with routing info"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_format_packet_without_source_and_dest(self):
@@ -563,7 +567,7 @@ class TestNewFormattingFeatures:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:3 -85dBm/10.0dB Hop:0 from:!test1234 to:!dest5678 hop_from:!211d1ae3 hop_to:!27bc86aa Position: lat=37.7749, lon=-122.4194"
+        expected = "[2023-10-19 16:00:00] Ch:3 -85dBm/10.0dB Hop:0 from:!test1234 to:!dest5678 hop_from:555555555 hop_to:666666666 Position: lat=37.7749, lon=-122.4194"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_format_packet_all_address_fields_resolvable(self):
@@ -596,7 +600,7 @@ class TestNewFormattingFeatures:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB Hop:0 from:Alice Node (!aaaaaaaa) to:Bob Node (!bbbbbbbb) source:Charlie Node (!cccccccc) dest:Delta Node (!dddddddd) Text: Full routing example"
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB Hop:0 from:Alice Node (!aaaaaaaa) to:Bob Node (!bbbbbbbb) source:Charlie Node (3435973836) dest:Delta Node (3722304989) Text: Full routing example"
         assert capture._format_packet(packet, mock_interface, False) == expected
 
     def test_format_packet_mixed_resolvable_unresolvable(self):
@@ -628,7 +632,7 @@ class TestNewFormattingFeatures:
 
         mock_args = Mock()
         capture = MeshCap(mock_args)
-        expected = "[2023-10-19 16:00:00] Ch:2 -90dBm/8.5dB Hop:0 from:Known User (!known123) to:!unknown99 hop_from:!423a35c7 hop_to:!84746b8e source:!c6aea155 dest:!108e8d71c Position: lat=37.7749, lon=-122.4194"
+        expected = "[2023-10-19 16:00:00] Ch:2 -90dBm/8.5dB Hop:0 from:Known User (!known123) to:!unknown99 hop_from:1111111111 hop_to:2222222222 source:3333333333 dest:4444444444 Position: lat=37.7749, lon=-122.4194"
         assert capture._format_packet(packet, mock_interface, False) == expected
 
     def test_format_packet_only_fromid_toid(self):
@@ -689,3 +693,98 @@ class TestNewFormattingFeatures:
         capture = MeshCap(mock_args)
         expected = "[2023-10-19 16:00:00] Ch:1 -80dBm/12.0dB Hop:3 from:!a1b2c3d4 to:!e5f6g7h8 Text: Hello World!"
         assert capture._format_packet(packet, MockInterface(), False) == expected
+
+    def test_node_number_display_instead_of_node_id(self):
+        """Test that _format_packet displays node numbers (123456789) instead of node IDs (!075bcd15)."""
+        packet = {
+            "rxTime": 1697731200,
+            "channel": 1,
+            "rxRssi": -85,
+            "rxSnr": 12.0,
+            "from": 123456789,  # This should be displayed as 123456789
+            "to": 987654321,  # This should be displayed as 987654321
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Hello World!"},
+        }
+
+        # Create mock interface with node that has both node ID and node number
+        mock_interface = MockInterface(
+            {
+                "123456789": {"user": {"longName": "Test Node"}},  # Node number as key
+                "987654321": {
+                    "user": {"longName": "Target Node"}
+                },  # Node number as key
+            }
+        )
+
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+
+        # Expected: node numbers should be displayed directly (123456789, 987654321)
+        # instead of hex format (!075bcd15, !3ade68b1)
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB Hop:0 hop_from:123456789 hop_to:987654321 Text: Hello World!"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
+
+    def test_missing_node_number_fallback_to_node_id(self):
+        """Test that _format_packet falls back to node ID when node number is not available (e.g., old capture files)."""
+        # Simulate old capture file scenario where we have node data but no node numbers
+        packet = {
+            "rxTime": 1697731200,
+            "channel": 2,
+            "rxRssi": -90,
+            "rxSnr": 8.5,
+            "fromId": "!deadbeef",  # String node ID from old capture
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "From old capture"},
+        }
+
+        # Mock interface has node data but no 'num' field (simulating old node data)
+        mock_interface = MockInterface(
+            {
+                "!deadbeef": {
+                    "user": {"longName": "Old Node"}
+                    # Note: no 'num' field in this node data
+                }
+            }
+        )
+
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+
+        # Expected: should fall back to node ID since no node number is available
+        expected = "[2023-10-19 16:00:00] Ch:2 -90dBm/8.5dB Hop:0 from:Old Node (!deadbeef) Text: From old capture"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
+
+    def test_missing_node_number_with_string_identifier_fallback(self):
+        """Test fallback behavior with string identifier when no node number is available."""
+        packet = {
+            "rxTime": 1697731200,
+            "channel": 3,
+            "rxRssi": -85,
+            "rxSnr": 10.0,
+            "fromId": "!abc12345",
+            "toId": "!def67890",
+            "decoded": {
+                "portnum": "POSITION_APP",
+                "position": {"latitude": 40.0, "longitude": -74.0},
+            },
+        }
+
+        # Interface has partial node data - one with user info but no num, one completely missing
+        mock_interface = MockInterface(
+            {
+                "!abc12345": {
+                    "user": {"longName": "Known Old Node"}
+                    # No 'num' field
+                }
+                # "!def67890" is completely missing from interface
+            }
+        )
+
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+
+        # Expected: resolved name with node ID fallback for first, raw node ID for second
+        expected = "[2023-10-19 16:00:00] Ch:3 -85dBm/10.0dB Hop:0 from:Known Old Node (!abc12345) to:!def67890 Position: lat=40.0, lon=-74.0"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected

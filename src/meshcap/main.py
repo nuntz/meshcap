@@ -3,6 +3,7 @@ import sys
 import time
 import pickle
 from datetime import datetime, timezone
+from typing import Dict, Union, Optional, Any
 import meshtastic.serial_interface
 from pubsub import pub
 from .filter import parse_filter, evaluate_filter, FilterError
@@ -169,36 +170,71 @@ class MeshCap:
             print(f"Error: Connection to device failed: {e}", file=sys.stderr)
             sys.exit(1)
 
-    def _resolve_node_info(self, interface, node_identifier, identifier_type):
+    def _resolve_node_info(
+        self,
+        interface: Optional[Any],
+        node_identifier: Union[int, str],
+        identifier_type: str,
+    ) -> Dict[str, Union[str, int]]:
         """Resolve a node identifier to a formatted display string with label.
 
         Args:
             interface: The Meshtastic interface object for node lookups (can be None)
             node_identifier: The node identifier (int node number or str '!nodeid')
-            identifier_type (str): The type of identifier ('from', 'to', 'source', 'dest')
+            identifier_type: The type of identifier ('from', 'to', 'source', 'dest')
 
         Returns:
-            dict: Dictionary with 'label' and 'value' keys
+            Dictionary with 'label', 'value' and optional 'node_number' keys
         """
-        # Convert integer node identifier to string format
+        # Convert integer node identifier to string format for lookup
         if isinstance(node_identifier, int):
             node_id_str = f"!{node_identifier:08x}"
+            original_node_number = node_identifier
         else:
             node_id_str = str(node_identifier)
+            original_node_number = None
 
         # Check if resolution is disabled or interface unavailable
         if self.args.no_resolve or interface is None:
+            # For integer identifiers, prefer displaying the node number
+            if original_node_number is not None:
+                return {"label": identifier_type, "value": str(original_node_number)}
             return {"label": identifier_type, "value": node_id_str}
 
         # Try to resolve using interface.nodes
         if interface and hasattr(interface, "nodes") and node_id_str in interface.nodes:
             node = interface.nodes[node_id_str]
+
+            # Extract node number from the node data if available
+            node_number = node.get("num", original_node_number)
+
+            # If we have user info, format with resolved name
             if "user" in node and "longName" in node["user"]:
                 resolved_name = node["user"]["longName"]
+                # Prefer node number over node ID for display
+                if node_number is not None:
+                    return {
+                        "label": identifier_type,
+                        "value": f"{resolved_name} ({node_number})",
+                        "node_number": node_number,
+                    }
+                else:
+                    return {
+                        "label": identifier_type,
+                        "value": f"{resolved_name} ({node_id_str})",
+                    }
+
+            # No user info, but we have node number
+            if node_number is not None:
                 return {
                     "label": identifier_type,
-                    "value": f"{resolved_name} ({node_id_str})",
+                    "value": str(node_number),
+                    "node_number": node_number,
                 }
+
+        # Fallback: prefer original node number if we have it
+        if original_node_number is not None:
+            return {"label": identifier_type, "value": str(original_node_number)}
 
         return {"label": identifier_type, "value": node_id_str}
 
@@ -248,7 +284,7 @@ class MeshCap:
         rssi = packet.get("rxRssi", 0)
         snr = packet.get("rxSnr", 0)
         signal = f"{rssi}dBm/{snr}dB"
-        
+
         hop_limit = packet.get("hopLimit", 0)
         hop_info = f" Hop:{hop_limit}"
 
