@@ -69,6 +69,17 @@ The address fields dynamically show the available routing information. meshcap i
 - **Hop routing**: `hop_from:` and `hop_to:` (when different from primary)
 - **End-to-end routing**: `source:` and `dest:` (ultimate source/destination)
 
+### Node Number Display
+
+meshcap now displays human-readable node numbers instead of hex node IDs when available:
+
+- **Node numbers**: Display as raw integers (e.g., `123456789`) for better readability
+- **Node IDs**: Fall back to hex format (e.g., `!075bcd15`) when node numbers aren't available
+- **Backward compatibility**: String node IDs continue to work as before (e.g., `!a1b2c3d4`)
+- **Mixed scenarios**: Intelligently handles packets with both node numbers and node IDs
+
+This enhancement makes packet output more user-friendly, especially when reading from old capture files or dealing with mixed node data sources.
+
 ### Examples
 
 **Simple message with name resolution:**
@@ -76,24 +87,34 @@ The address fields dynamically show the available routing information. meshcap i
 [2023-10-19 16:00:00] Ch:1 -85dBm/12.0dB Hop:3 from:Alice (!a1b2c3d4) to:Bob (!e5f6g7h8) Text: Hello World!
 ```
 
-**Position packet with resolved names:**
+**Position packet with resolved names and node numbers:**
 ```
-[2023-10-19 16:01:15] Ch:2 -78dBm/15.2dB Hop:2 from:Mobile Node (!12345678) to:Base Station (!87654321) Position: lat=37.7749, lon=-122.4194
+[2023-10-19 16:01:15] Ch:2 -78dBm/15.2dB Hop:2 from:Mobile Node (305419896) to:Base Station (2271560481) Position: lat=37.7749, lon=-122.4194
 ```
 
-**Complex routing with all address fields:**
+**Complex routing with mixed node numbers and IDs:**
 ```
-[2023-10-19 16:02:00] Ch:1 -85dBm/12.0dB Hop:5 from:Alice (!aaaaaaaa) to:Bob (!bbbbbbbb) source:Charlie (!cccccccc) dest:Delta (!dddddddd) Text: Multi-hop message
+[2023-10-19 16:02:00] Ch:1 -85dBm/12.0dB Hop:5 from:Alice (!aaaaaaaa) to:Bob (!bbbbbbbb) source:Charlie (3435973836) dest:Delta (3722304989) Text: Multi-hop message
+```
+
+**Node numbers for better readability:**
+```
+[2023-10-19 16:02:15] Ch:3 -85dBm/10.0dB Hop:0 hop_from:123456789 hop_to:987654321 Text: Node numbers instead of hex IDs
 ```
 
 **Mixed resolved and unresolved addresses:**
 ```
-[2023-10-19 16:02:30] Ch:2 -92dBm/8.5dB Hop:1 from:Known User (!known123) to:!unknown456 hop_from:!423a35c7 hop_to:!84746b8e source:!c6aea155 dest:!108e8d71c Position: lat=37.7749, lon=-122.4194
+[2023-10-19 16:02:30] Ch:2 -92dBm/8.5dB Hop:1 from:Known User (!known123) to:!unknown456 hop_from:1111111111 hop_to:2222222222 source:3333333333 dest:4444444444 Position: lat=37.7749, lon=-122.4194
 ```
 
-**With --no-resolve flag (raw IDs only):**
+**Fallback to node ID when node number unavailable (old capture files):**
 ```
-[2023-10-19 16:03:45] Ch:3 -88dBm/10.2dB Hop:0 from:!a1b2c3d4 to:!e5f6g7h8 Text: Raw IDs only
+[2023-10-19 16:02:45] Ch:4 -90dBm/8.0dB Hop:0 from:Old Node (!deadbeef) Text: Graceful fallback for compatibility
+```
+
+**With --no-resolve flag (raw identifiers only):**
+```
+[2023-10-19 16:03:45] Ch:3 -88dBm/10.2dB Hop:0 from:123456789 to:987654321 Text: Raw node numbers without names
 ```
 
 **Encrypted packets:**
@@ -108,13 +129,20 @@ The address fields dynamically show the available routing information. meshcap i
 - **hop_from/hop_to**: Physical hop routing when different from string IDs
 - **source/dest**: End-to-end message routing (ultimate origin/destination)
 
+### Address Display Formats
+
+- **Node numbers**: Raw integers (e.g., `123456789`) - preferred for readability
+- **Node IDs**: Hex format (e.g., `!075bcd15`) - fallback when node numbers unavailable  
+- **String IDs**: Hex strings (e.g., `!a1b2c3d4`) - backward compatibility
+- **Resolved names**: `Name (identifier)` format - shows user name with node number/ID
+
 The tool only shows address fields that are present and differ from each other, keeping output clean while providing comprehensive routing information when available. The hop limit is always displayed when available, defaulting to 0 when not present in the packet.
 
 ## Command Line Options
 
 - `--port/-p`: Serial device path (default: `/dev/ttyACM0`)
 - `--test-mode`: Run in test mode (exit after setup)
-- `--no-resolve/-n`: Disable node name resolution (show only raw node IDs)
+- `--no-resolve/-n`: Disable node name resolution (show raw node numbers/IDs without names)
 - `--write-file/-w`: Write packets to binary file
 - `--read-file/-r`: Read packets from file
 - `--count/-c`: Exit after N packets
