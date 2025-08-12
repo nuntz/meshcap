@@ -8,10 +8,12 @@ def test_connect_to_device_success(capsys):
     mock_args = Mock()
     mock_interface = Mock()
     capture = MeshCap(mock_args)
-    
-    with patch('meshtastic.serial_interface.SerialInterface', return_value=mock_interface):
-        result = capture._connect_to_device('/dev/ttyUSB0')
-    
+
+    with patch(
+        "meshtastic.serial_interface.SerialInterface", return_value=mock_interface
+    ):
+        result = capture._connect_to_device("/dev/ttyUSB0")
+
     assert result is mock_interface
     captured = capsys.readouterr()
     assert "Successfully connected to device at /dev/ttyUSB0" in captured.out
@@ -22,11 +24,14 @@ def test_connect_to_device_failure():
     mock_args = Mock()
     capture = MeshCap(mock_args)
     error_message = "Connection failed: Device not found"
-    
-    with patch('meshtastic.serial_interface.SerialInterface', side_effect=Exception(error_message)):
+
+    with patch(
+        "meshtastic.serial_interface.SerialInterface",
+        side_effect=Exception(error_message),
+    ):
         with pytest.raises(SystemExit) as exc_info:
-            capture._connect_to_device('/dev/ttyUSB0')
-    
+            capture._connect_to_device("/dev/ttyUSB0")
+
     assert exc_info.value.code == 1
 
 
@@ -35,10 +40,13 @@ def test_connect_to_device_failure_error_message(capsys):
     mock_args = Mock()
     capture = MeshCap(mock_args)
     error_message = "Connection failed: Device not found"
-    
-    with patch('meshtastic.serial_interface.SerialInterface', side_effect=Exception(error_message)):
+
+    with patch(
+        "meshtastic.serial_interface.SerialInterface",
+        side_effect=Exception(error_message),
+    ):
         with pytest.raises(SystemExit):
-            capture._connect_to_device('/dev/ttyUSB0')
-    
+            capture._connect_to_device("/dev/ttyUSB0")
+
     captured = capsys.readouterr()
     assert f"Error: Connection to device failed: {error_message}" in captured.err
