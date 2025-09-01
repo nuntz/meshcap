@@ -45,6 +45,10 @@ def to_node_num(value: int | str) -> int:
         if cleaned.startswith('!'):
             cleaned = cleaned[1:]
         
+        # Handle special broadcast addresses
+        if cleaned.lower() in ('0000^all', '^all'):
+            return 0xFFFFFFFF  # Broadcast address
+        
         # Convert to lowercase, zero-fill to 8 characters, parse as hex
         hex_str = cleaned.lower().zfill(8)
         return int(hex_str, 16)

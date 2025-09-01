@@ -79,6 +79,13 @@ class TestToNodeNum:
         
         with pytest.raises(ValueError):
             to_node_num('a2ebdc2g')  # 'g' is not valid hex
+    
+    def test_special_broadcast_addresses(self):
+        """Test that special broadcast addresses are handled correctly."""
+        assert to_node_num('0000^all') == 0xFFFFFFFF
+        assert to_node_num('^all') == 0xFFFFFFFF
+        assert to_node_num('!0000^all') == 0xFFFFFFFF
+        assert to_node_num('!^all') == 0xFFFFFFFF
 
 
 class TestToUserId:
