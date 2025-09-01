@@ -988,3 +988,311 @@ class TestFormatNodeLabel:
         
         result = capture.format_node_label(mock_interface, "!a1b2c3d4")
         assert result == "Alice Node (!a1b2c3d4)"
+
+
+class TestGoldenExamples:
+    """Golden examples for stabilizing text and position packet output formats."""
+
+    def test_text_packet_with_resolved_names_golden(self):
+        """Golden example: Text packet with resolved names -> 'Name(!hex)' format."""
+        packet = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 1,
+            "rxRssi": -85,
+            "rxSnr": 12.5,
+            "fromId": "!a1b2c3d4",
+            "toId": "!e5f6a7b8",
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Hello from Alice!"},
+        }
+
+        mock_interface = MockInterface(
+            {
+                "!a1b2c3d4": {"user": {"longName": "Alice Node"}},
+                "!e5f6a7b8": {"user": {"longName": "Bob Node"}},
+            }
+        )
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.5dB Hop:0 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Hello from Alice!"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
+
+    def test_text_packet_without_resolved_names_golden(self):
+        """Golden example: Text packet without resolved names -> '!hex' format."""
+        packet = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 2,
+            "rxRssi": -92,
+            "rxSnr": 8.0,
+            "fromId": "!12345678",
+            "toId": "!87654321",
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Message from unknown"},
+        }
+
+        # Empty interface - no name resolution available
+        mock_interface = MockInterface({})
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        
+        expected = "[2023-10-19 16:00:00] Ch:2 -92dBm/8.0dB Hop:0 from:!12345678 to:!87654321 Text: Message from unknown"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
+
+    def test_text_packet_mixed_resolution_golden(self):
+        """Golden example: Text packet with mixed name resolution."""
+        packet = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 3,
+            "rxRssi": -78,
+            "rxSnr": 15.2,
+            "fromId": "!aaaa1234",
+            "toId": "!bbbb5678",
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Mixed resolution test"},
+        }
+
+        mock_interface = MockInterface(
+            {
+                "!aaaa1234": {"user": {"longName": "Known User"}}
+                # !bbbb5678 not in nodes - should fallback to hex
+            }
+        )
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        
+        expected = "[2023-10-19 16:00:00] Ch:3 -78dBm/15.2dB Hop:0 from:Known User (!aaaa1234) to:!bbbb5678 Text: Mixed resolution test"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
+
+    def test_position_packet_with_lat_lon_preview_golden(self):
+        """Golden example: Position packet with lat/lon/alt preview."""
+        packet = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 4,
+            "rxRssi": -88,
+            "rxSnr": 10.0,
+            "fromId": "!cccc1234",
+            "toId": "!dddd5678",
+            "decoded": {
+                "portnum": "POSITION_APP",
+                "position": {
+                    "latitude": 37.7749,
+                    "longitude": -122.4194,
+                    "altitude": 43
+                }
+            },
+        }
+
+        mock_interface = MockInterface(
+            {
+                "!cccc1234": {"user": {"longName": "GPS Tracker"}},
+                "!dddd5678": {"user": {"longName": "Base Station"}},
+            }
+        )
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        
+        # Note: Current implementation shows lat/lon, not altitude in preview
+        expected = "[2023-10-19 16:00:00] Ch:4 -88dBm/10.0dB Hop:0 from:GPS Tracker (!cccc1234) to:Base Station (!dddd5678) Position: lat=37.7749, lon=-122.4194"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
+
+    def test_position_packet_without_names_golden(self):
+        """Golden example: Position packet without resolved names."""
+        packet = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 5,
+            "rxRssi": -95,
+            "rxSnr": 5.5,
+            "fromId": "!eeee1234",
+            "toId": "!ffff5678",
+            "decoded": {
+                "portnum": "POSITION_APP",
+                "position": {
+                    "latitude": 40.7128,
+                    "longitude": -74.0060
+                }
+            },
+        }
+
+        # Empty interface - no name resolution
+        mock_interface = MockInterface({})
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        
+        expected = "[2023-10-19 16:00:00] Ch:5 -95dBm/5.5dB Hop:0 from:!eeee1234 to:!ffff5678 Position: lat=40.7128, lon=-74.006"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
+
+    def test_position_packet_missing_coords_golden(self):
+        """Golden example: Position packet with missing coordinates defaults to 0."""
+        packet = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 6,
+            "rxRssi": -90,
+            "rxSnr": 7.5,
+            "fromId": "!aaaa9999",
+            "toId": "!bbbb8888",
+            "decoded": {
+                "portnum": "POSITION_APP",
+                "position": {}  # Empty position data
+            },
+        }
+
+        mock_interface = MockInterface(
+            {"!aaaa9999": {"user": {"longName": "Bad GPS Unit"}}}
+        )
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        
+        expected = "[2023-10-19 16:00:00] Ch:6 -90dBm/7.5dB Hop:0 from:Bad GPS Unit (!aaaa9999) to:!bbbb8888 Position: lat=0, lon=0"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
+
+    def test_encrypted_payload_preview_unchanged_golden(self):
+        """Golden example: Encrypted payload preview shows length, unchanged by resolution."""
+        packet = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 7,
+            "rxRssi": -82,
+            "rxSnr": 13.8,
+            "fromId": "!aaaa0001",
+            "toId": "!bbbb0002",
+            "encrypted": b"this is some encrypted binary payload data here for testing",
+        }
+
+        mock_interface = MockInterface(
+            {
+                "!aaaa0001": {"user": {"longName": "Secure Node Alpha"}},
+                "!bbbb0002": {"user": {"longName": "Secure Node Beta"}},
+            }
+        )
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        
+        expected = "[2023-10-19 16:00:00] Ch:7 -82dBm/13.8dB Hop:0 from:Secure Node Alpha (!aaaa0001) to:Secure Node Beta (!bbbb0002) Encrypted: length=59"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
+
+    def test_encrypted_payload_no_names_golden(self):
+        """Golden example: Encrypted payload without name resolution."""
+        packet = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 8,
+            "rxRssi": -99,
+            "rxSnr": 2.1,
+            "fromId": "!cccc0001",
+            "toId": "!dddd0002",
+            "encrypted": b"encrypted",
+        }
+
+        # No name resolution available
+        mock_interface = MockInterface({})
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        
+        expected = "[2023-10-19 16:00:00] Ch:8 -99dBm/2.1dB Hop:0 from:!cccc0001 to:!dddd0002 Encrypted: length=9"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
+
+    def test_consistent_utc_timestamp_formatting_golden(self):
+        """Golden example: UTC timestamp formatting consistency across different scenarios."""
+        # Test various timestamps to ensure consistent formatting
+        test_cases = [
+            {
+                "rxTime": 0,  # Unix epoch
+                "expected_time": "[1970-01-01 00:00:00]"
+            },
+            {
+                "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+                "expected_time": "[2023-10-19 16:00:00]"
+            },
+            {
+                "rxTime": 1735689600,  # 2025-01-01 00:00:00 UTC (future date)
+                "expected_time": "[2025-01-01 00:00:00]"
+            }
+        ]
+
+        mock_interface = MockInterface({})
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+
+        for case in test_cases:
+            packet = {
+                "rxTime": case["rxTime"],
+                "channel": 1,
+                "rxRssi": -85,
+                "rxSnr": 12.0,
+                "fromId": "!aaaa0000",
+                "toId": "!bbbb0000",
+                "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Timestamp test"},
+            }
+            
+            result = capture._format_packet(packet, mock_interface, False)
+            assert result.startswith(case["expected_time"]), f"Expected {case['expected_time']}, got: {result[:21]}"
+
+    def test_hop_limit_display_golden(self):
+        """Golden example: Hop limit display in packet formatting."""
+        packet = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 9,
+            "rxRssi": -87,
+            "rxSnr": 9.5,
+            "fromId": "!aaaa1111",
+            "toId": "!bbbb2222",
+            "hopLimit": 5,
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Multi-hop message"},
+        }
+
+        mock_interface = MockInterface(
+            {"!aaaa1111": {"user": {"longName": "Router Node"}}}
+        )
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        
+        expected = "[2023-10-19 16:00:00] Ch:9 -87dBm/9.5dB Hop:5 from:Router Node (!aaaa1111) to:!bbbb2222 Text: Multi-hop message"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
+
+    def test_empty_text_message_golden(self):
+        """Golden example: Empty text message handling."""
+        packet = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 10,
+            "rxRssi": -80,
+            "rxSnr": 12.0,
+            "fromId": "!cccc3333",
+            "toId": "!dddd4444",
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": ""},
+        }
+
+        mock_interface = MockInterface(
+            {"!cccc3333": {"user": {"longName": "Silent Node"}}}
+        )
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        
+        expected = "[2023-10-19 16:00:00] Ch:10 -80dBm/12.0dB Hop:0 from:Silent Node (!cccc3333) to:!dddd4444 Text: "
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
