@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, Optional, Any
 
 
 @dataclass(frozen=True)
@@ -63,3 +63,34 @@ def to_user_id(node_num: int) -> str:
         Node identifier as string in format "!%08x"
     """
     return f"!{node_num & 0xFFFFFFFF:08x}"
+
+
+class NodeBook:
+    """Cache for NodeLabel objects keyed by node number."""
+    
+    def __init__(self, interface: Optional[Any] = None):
+        self.interface = interface
+        self._cache: Dict[int, NodeLabel] = {}
+    
+    def get(self, node: int | str) -> NodeLabel:
+        """
+        Get NodeLabel for given node, using cache when available.
+        
+        Args:
+            node: Node identifier as int or string
+            
+        Returns:
+            NodeLabel for the node
+        """
+        node_num = to_node_num(node)
+        
+        if node_num in self._cache:
+            return self._cache[node_num]
+        
+        # For now, create NodeLabel with just node_num and user_id
+        # Future enhancement will query interface.nodes when available
+        user_id = to_user_id(node_num)
+        node_label = NodeLabel(node_num=node_num, user_id=user_id)
+        
+        self._cache[node_num] = node_label
+        return node_label
