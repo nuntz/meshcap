@@ -187,57 +187,27 @@ class MeshCap:
         Returns:
             Dictionary with 'label', 'value' and optional 'node_number' keys
         """
-        # Convert integer node identifier to string format for lookup
+        from .identifiers import to_node_num
+        
+        # Canonicalize the node identifier to get node_number
+        node_number = to_node_num(node_identifier)
+        
+        # Use format_node_label to get the formatted value
+        formatted_value = self.format_node_label(
+            interface, node_identifier, no_resolve=getattr(self.args, 'no_resolve', False)
+        )
+        
+        # Build return dict with label and value
+        result = {
+            "label": identifier_type,
+            "value": formatted_value,
+        }
+        
+        # Add node_number if it's available and different from the original identifier
         if isinstance(node_identifier, int):
-            node_id_str = f"!{node_identifier:08x}"
-            original_node_number = node_identifier
-        else:
-            node_id_str = str(node_identifier)
-            original_node_number = None
-
-        # Check if resolution is disabled or interface unavailable
-        if self.args.no_resolve or interface is None:
-            # For integer identifiers, prefer displaying the node number
-            if original_node_number is not None:
-                return {"label": identifier_type, "value": str(original_node_number)}
-            return {"label": identifier_type, "value": node_id_str}
-
-        # Try to resolve using interface.nodes
-        if interface and hasattr(interface, "nodes") and node_id_str in interface.nodes:
-            node = interface.nodes[node_id_str]
-
-            # Extract node number from the node data if available
-            node_number = node.get("num", original_node_number)
-
-            # If we have user info, format with resolved name
-            if "user" in node and "longName" in node["user"]:
-                resolved_name = node["user"]["longName"]
-                # Prefer node number over node ID for display
-                if node_number is not None:
-                    return {
-                        "label": identifier_type,
-                        "value": f"{resolved_name} ({node_number})",
-                        "node_number": node_number,
-                    }
-                else:
-                    return {
-                        "label": identifier_type,
-                        "value": f"{resolved_name} ({node_id_str})",
-                    }
-
-            # No user info, but we have node number
-            if node_number is not None:
-                return {
-                    "label": identifier_type,
-                    "value": str(node_number),
-                    "node_number": node_number,
-                }
-
-        # Fallback: prefer original node number if we have it
-        if original_node_number is not None:
-            return {"label": identifier_type, "value": str(original_node_number)}
-
-        return {"label": identifier_type, "value": node_id_str}
+            result["node_number"] = node_number
+        
+        return result
 
     def _node_ids_differ(self, id1, id2):
         """Check if two node identifiers represent different nodes.
@@ -294,7 +264,7 @@ class MeshCap:
             return best if best != user_id else user_id
         elif label_mode == "named-with-hex":
             best = node_label.best()
-            return f"{best}({user_id})" if best != user_id else user_id
+            return f"{best} ({user_id})" if best != user_id else user_id
         else:
             raise ValueError(f"Unknown label_mode: {label_mode}")
 

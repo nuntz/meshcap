@@ -216,7 +216,7 @@ class TestResolveNodeInfo:
         result = capture._resolve_node_info(mock_interface, 123456789, "to")
         expected = {
             "label": "to",
-            "value": "Bob Node (123456789)",
+            "value": "Bob Node (!075bcd15)",
             "node_number": 123456789,
         }
         assert result == expected
@@ -229,8 +229,8 @@ class TestResolveNodeInfo:
         mock_args.no_resolve = False
         capture = MeshCap(mock_args)
 
-        result = capture._resolve_node_info(mock_interface, "!unknown123", "source")
-        expected = {"label": "source", "value": "!unknown123"}
+        result = capture._resolve_node_info(mock_interface, "!abcdef12", "source")
+        expected = {"label": "source", "value": "!abcdef12"}
         assert result == expected
 
     def test_resolve_node_info_unresolvable_integer(self):
@@ -244,8 +244,9 @@ class TestResolveNodeInfo:
         result = capture._resolve_node_info(mock_interface, 987654321, "dest")
         expected = {
             "label": "dest",
-            "value": "987654321",
-        }  # node number representation
+            "value": "!3ade68b1",  # hex representation of 987654321
+            "node_number": 987654321,
+        }
         assert result == expected
 
     def test_resolve_node_info_no_resolve_flag(self):
@@ -854,7 +855,7 @@ class TestFormatNodeLabel:
         capture = MeshCap(mock_args)
         
         result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-with-hex")
-        assert result == "Alice Node(!a1b2c3d4)"
+        assert result == "Alice Node (!a1b2c3d4)"
 
     def test_format_node_label_named_with_hex_mode_no_name_fallback(self):
         """Test format_node_label with named-with-hex mode falls back to user_id when no name available."""
@@ -881,7 +882,7 @@ class TestFormatNodeLabel:
         assert result == "Alice"
         
         result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-with-hex")
-        assert result == "Alice(!a1b2c3d4)"
+        assert result == "Alice (!a1b2c3d4)"
 
     def test_format_node_label_with_empty_short_name(self):
         """Test format_node_label handles empty/whitespace shortName correctly."""
@@ -905,7 +906,7 @@ class TestFormatNodeLabel:
         capture = MeshCap(mock_args)
         
         result = capture.format_node_label(mock_interface, 123456789, label_mode="named-with-hex")
-        assert result == "Node 123456789(!075bcd15)"
+        assert result == "Node 123456789 (!075bcd15)"
 
     def test_format_node_label_no_interface(self):
         """Test format_node_label handles None interface correctly."""
@@ -938,4 +939,4 @@ class TestFormatNodeLabel:
         capture = MeshCap(mock_args)
         
         result = capture.format_node_label(mock_interface, "!a1b2c3d4")
-        assert result == "Alice Node(!a1b2c3d4)"
+        assert result == "Alice Node (!a1b2c3d4)"
