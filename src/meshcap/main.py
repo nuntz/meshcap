@@ -194,7 +194,7 @@ class MeshCap:
         
         # Use format_node_label to get the formatted value
         formatted_value = self.format_node_label(
-            interface, node_identifier, no_resolve=getattr(self.args, 'no_resolve', False)
+            interface, node_identifier, label_mode=getattr(self.args, 'label_mode', 'named-with-hex'), no_resolve=getattr(self.args, 'no_resolve', False)
         )
         
         # Build return dict with label and value
@@ -295,59 +295,29 @@ class MeshCap:
         hop_limit = packet.get("hopLimit", 0)
         hop_info = f" Hop:{hop_limit}"
 
-        # Build clean address string with proper labels
+        # Extract canonical from/to candidates
+        from_candidate = packet.get("fromId") or packet.get("from")
+        to_candidate = packet.get("toId") or packet.get("to")
+
+        # Build clean address string with canonical addressing
         address_parts = []
-
-        # Primary addressing - immediate hop (most common case)
-        from_id = packet.get("fromId")
-        to_id = packet.get("toId")
-
-        if from_id:
-            address_parts.append(self._resolve_node_info(interface, from_id, "from"))
-
-        if to_id:
-            address_parts.append(self._resolve_node_info(interface, to_id, "to"))
-
-        # Secondary addressing - numeric IDs (for backwards compatibility)
-        from_num = packet.get("from")
-        to_num = packet.get("to")
-
-        # Only show numeric IDs if they differ from string IDs or if string IDs are missing
-        if from_num and (not from_id or self._node_ids_differ(from_id, from_num)):
-            address_parts.append(
-                self._resolve_node_info(interface, from_num, "hop_from")
-            )
-
-        if to_num and (not to_id or self._node_ids_differ(to_id, to_num)):
-            address_parts.append(self._resolve_node_info(interface, to_num, "hop_to"))
-
-        # End-to-end routing information
-        decoded = packet.get("decoded", {})
-        if decoded:
-            source_num = decoded.get("source")
-            dest_num = decoded.get("dest")
-
-            if source_num and (
-                not from_id or self._node_ids_differ(from_id, source_num)
-            ):
-                address_parts.append(
-                    self._resolve_node_info(interface, source_num, "source")
-                )
-
-            if dest_num and (not to_id or self._node_ids_differ(to_id, dest_num)):
-                address_parts.append(
-                    self._resolve_node_info(interface, dest_num, "dest")
-                )
-
-        # Build final address string
-        if address_parts:
-            address_str = " ".join(
-                f"{part['label']}:{part['value']}" for part in address_parts
-            )
+        
+        if from_candidate:
+            from_label = self.format_node_label(interface, from_candidate, label_mode=self.args.label_mode, no_resolve=no_resolve)
+            address_parts.append(f"from:{from_label}")
         else:
-            address_str = "from:unknown to:unknown"
+            address_parts.append("from:unknown")
+            
+        if to_candidate:
+            to_label = self.format_node_label(interface, to_candidate, label_mode=self.args.label_mode, no_resolve=no_resolve)
+            address_parts.append(f"to:{to_label}")
+        else:
+            address_parts.append("to:unknown")
+
+        address_str = " ".join(address_parts)
 
         # Format packet payload
+        decoded = packet.get("decoded", {})
         if decoded and "portnum" in decoded:
             portnum = decoded["portnum"]
 
@@ -412,10 +382,21 @@ def main():
         help="Enable verbose output (show JSON details)",
     )
     parser.add_argument(
+        "--label-mode",
+        choices=["auto", "named-with-hex", "named-only", "hex-only"],
+        default="named-with-hex",
+        help="Node label display mode (default: named-with-hex, auto=named-with-hex)",
+    )
+    parser.add_argument(
         "filter", nargs="*", help="Filter expression (e.g., 'src node A and port text')"
     )
 
     args = parser.parse_args()
+    
+    # Handle alias mapping: auto -> named-with-hex
+    if args.label_mode == "auto":
+        args.label_mode = "named-with-hex"
+    
     capture = MeshCap(args)
     capture.run()
 

@@ -25,6 +25,7 @@ def test_counter_exits_after_target_count(capsys):
     # Create mock args with count=3
     mock_args = Mock()
     mock_args.count = 3
+    mock_args.label_mode = "named-with-hex"
 
     # Instantiate MeshCap
     capture = MeshCap(mock_args)
@@ -62,6 +63,7 @@ def test_file_io_integration():
             mock_args = Mock()
             mock_args.count = None
             mock_args.write_file = temp_filename
+            mock_args.label_mode = "named-with-hex"
 
             # Instantiate MeshCap and manually assign file handle
             capture = MeshCap(mock_args)
@@ -137,6 +139,7 @@ def test_write_file_with_count():
             mock_args = Mock()
             mock_args.count = 5
             mock_args.write_file = temp_filename
+            mock_args.label_mode = "named-with-hex"
 
             # Instantiate MeshCap and manually assign file handle
             capture = MeshCap(mock_args)
@@ -171,6 +174,7 @@ def test_write_file_with_count():
 def test_no_resolve_with_none_interface():
     """Test that packets can be formatted when interface is None."""
     mock_args = Mock()
+    mock_args.label_mode = "named-with-hex"
     capture = MeshCap(mock_args)
     packet = create_mock_packet()
 
