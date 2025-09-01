@@ -1,3 +1,31 @@
+from dataclasses import dataclass
+from typing import Optional
+
+
+@dataclass(frozen=True)
+class NodeLabel:
+    """Represents optional labels for a Meshtastic node with deterministic fallback."""
+    node_num: int
+    user_id: str
+    long_name: Optional[str] = None
+    short_name: Optional[str] = None
+    
+    def best(self) -> str:
+        """
+        Return the best available name for this node.
+        
+        Fallback order:
+        1. short_name (if truthy after stripping whitespace)
+        2. long_name (if available)
+        3. user_id
+        """
+        if self.short_name and self.short_name.strip():
+            return self.short_name.strip()
+        if self.long_name:
+            return self.long_name
+        return self.user_id
+
+
 def to_node_num(value: int | str) -> int:
     """
     Convert Meshtastic node identifier to canonical uint32 integer format.

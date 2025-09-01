@@ -1,5 +1,5 @@
 import pytest
-from meshcap.identifiers import to_node_num, to_user_id
+from meshcap.identifiers import NodeLabel, to_node_num, to_user_id
 
 
 class TestToNodeNum:
@@ -104,3 +104,83 @@ class TestToUserId:
         assert to_user_id(to_node_num("!ffffffff")) == "!ffffffff"
         assert to_user_id(to_node_num("a2ebdc20")) == "!a2ebdc20"
         assert to_user_id(to_node_num("dc20")) == "!0000dc20"
+
+
+class TestNodeLabel:
+    """Test NodeLabel dataclass and its best() method."""
+    
+    def test_best_prefers_short_name_over_long_name(self):
+        """Test that best() returns short_name when both short and long names are available."""
+        label = NodeLabel(
+            node_num=123456,
+            user_id="!0001e240",
+            long_name="Long Device Name",
+            short_name="Short"
+        )
+        assert label.best() == "Short"
+    
+    def test_best_prefers_long_name_over_user_id(self):
+        """Test that best() returns long_name when short_name is not available."""
+        label = NodeLabel(
+            node_num=123456,
+            user_id="!0001e240",
+            long_name="Long Device Name"
+        )
+        assert label.best() == "Long Device Name"
+    
+    def test_best_falls_back_to_user_id(self):
+        """Test that best() returns user_id when no names are available."""
+        label = NodeLabel(
+            node_num=123456,
+            user_id="!0001e240"
+        )
+        assert label.best() == "!0001e240"
+    
+    def test_best_trims_whitespace_from_short_name(self):
+        """Test that best() strips whitespace from short_name."""
+        label = NodeLabel(
+            node_num=123456,
+            user_id="!0001e240",
+            long_name="Long Device Name",
+            short_name="  Short  "
+        )
+        assert label.best() == "Short"
+    
+    def test_best_ignores_empty_short_name(self):
+        """Test that best() ignores empty or whitespace-only short_name."""
+        label = NodeLabel(
+            node_num=123456,
+            user_id="!0001e240",
+            long_name="Long Device Name",
+            short_name="   "
+        )
+        assert label.best() == "Long Device Name"
+    
+    def test_best_ignores_none_short_name(self):
+        """Test that best() handles None short_name gracefully."""
+        label = NodeLabel(
+            node_num=123456,
+            user_id="!0001e240",
+            long_name="Long Device Name",
+            short_name=None
+        )
+        assert label.best() == "Long Device Name"
+    
+    def test_best_ignores_empty_string_short_name(self):
+        """Test that best() ignores empty string short_name."""
+        label = NodeLabel(
+            node_num=123456,
+            user_id="!0001e240",
+            long_name="Long Device Name",
+            short_name=""
+        )
+        assert label.best() == "Long Device Name"
+    
+    def test_frozen_dataclass(self):
+        """Test that NodeLabel is frozen and immutable."""
+        label = NodeLabel(
+            node_num=123456,
+            user_id="!0001e240"
+        )
+        with pytest.raises(AttributeError):
+            label.node_num = 789
