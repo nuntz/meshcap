@@ -22,3 +22,16 @@ def to_node_num(value: int | str) -> int:
         return int(hex_str, 16)
     
     raise TypeError(f"Expected int or str, got {type(value)}")
+
+
+def to_user_id(node_num: int) -> str:
+    """
+    Convert node number to Meshtastic user ID textual format.
+    
+    Args:
+        node_num: Node identifier as integer
+        
+    Returns:
+        Node identifier as string in format "!%08x"
+    """
+    return f"!{node_num & 0xFFFFFFFF:08x}"

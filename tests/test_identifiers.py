@@ -1,5 +1,5 @@
 import pytest
-from meshcap.identifiers import to_node_num
+from meshcap.identifiers import to_node_num, to_user_id
 
 
 class TestToNodeNum:
@@ -79,3 +79,28 @@ class TestToNodeNum:
         
         with pytest.raises(ValueError):
             to_node_num('a2ebdc2g')  # 'g' is not valid hex
+
+
+class TestToUserId:
+    """Test cases for to_user_id function."""
+    
+    def test_basic_conversion(self):
+        """Test basic node number to user ID conversion."""
+        assert to_user_id(0xa2ebdc20) == "!a2ebdc20"
+        assert to_user_id(0x0000dc20) == "!0000dc20"
+        assert to_user_id(0xffffffff) == "!ffffffff"
+        assert to_user_id(0) == "!00000000"
+    
+    def test_masking_64bit_input(self):
+        """Test that 64-bit input is properly masked to 32-bit."""
+        assert to_user_id(0x1a2ebdc20) == "!a2ebdc20"
+        assert to_user_id(0x100000000) == "!00000000"
+        assert to_user_id(0x1ffffffff) == "!ffffffff"
+    
+    def test_round_trip_conversion(self):
+        """Test round-trip conversion between formats."""
+        assert to_user_id(to_node_num("!a2ebdc20")) == "!a2ebdc20"
+        assert to_user_id(to_node_num("!00000000")) == "!00000000"
+        assert to_user_id(to_node_num("!ffffffff")) == "!ffffffff"
+        assert to_user_id(to_node_num("a2ebdc20")) == "!a2ebdc20"
+        assert to_user_id(to_node_num("dc20")) == "!0000dc20"
