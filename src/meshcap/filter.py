@@ -7,6 +7,54 @@ using logical expressions with 'and', 'or', 'not', and parentheses for precedenc
 from typing import List, Union, Tuple, Any, Dict
 
 
+def to_node_num(value: Union[str, int]) -> Union[int, str]:
+    """Convert various node ID formats to canonical representation.
+    
+    Args:
+        value: Node ID in format: decimal (int/str), hex ("a2ebdc20"), or !hex ("!a2ebdc20")
+        
+    Returns:
+        Integer representation of the node ID if it's a valid number format,
+        otherwise returns the original string for non-numeric node IDs
+    """
+    if isinstance(value, int):
+        return value
+    
+    if isinstance(value, str):
+        # Handle empty string
+        if not value:
+            return 0
+            
+        # Handle !hex format (e.g., "!a2ebdc20")
+        if value.startswith("!"):
+            hex_part = value[1:]
+            try:
+                return int(hex_part, 16)
+            except ValueError:
+                # If it's not a valid hex after !, return as string
+                return value
+        
+        # Handle pure hex format (e.g., "a2ebdc20") - only if it looks like a hex node ID
+        # Accept hex strings that contain at least one hex letter and are reasonable length
+        if (len(value) >= 2 and len(value) <= 8 and 
+            all(c in "0123456789abcdefABCDEF" for c in value) and
+            any(c in "abcdefABCDEF" for c in value)):  # Must contain at least one hex letter
+            try:
+                # Try as hex first
+                return int(value, 16)
+            except ValueError:
+                pass
+        
+        # Handle decimal format
+        try:
+            return int(value)
+        except ValueError:
+            # If it's not a valid number, return as string for backward compatibility
+            return value
+    
+    return value
+
+
 class FilterError(Exception):
     """Exception raised for filter parsing or evaluation errors."""
 
@@ -308,15 +356,21 @@ class FilterEvaluator:
 
     def _eval_node(self, field: str, value: str, packet: Dict[str, Any]) -> bool:
         """Evaluate node primitive."""
-        from_id = packet.get("fromId", "")
-        to_id = packet.get("toId", "")
+        # Get node IDs from packet, checking both new and legacy field names
+        from_id = packet.get("fromId") or packet.get("from") or ""
+        to_id = packet.get("toId") or packet.get("to") or ""
+        
+        # Convert to canonical representations
+        from_n = to_node_num(from_id)
+        to_n = to_node_num(to_id)
+        val_n = to_node_num(value)
 
         if field == "src":
-            return from_id == value
+            return from_n == val_n
         elif field == "dst":
-            return to_id == value
+            return to_n == val_n
         elif field == "both":
-            return from_id == value or to_id == value
+            return from_n == val_n or to_n == val_n
 
         return False
 

@@ -8,6 +8,7 @@ from meshcap.filter import (
     FilterError,
     parse_filter,
     evaluate_filter,
+    to_node_num,
 )
 
 
@@ -592,6 +593,88 @@ class TestFilterEvaluator:
         # Test filter returns False if interface is None
         rpn: List[Union[Tuple[str, str, str], str]] = [("user", "src", "Alice")]
         assert evaluator.evaluate_rpn(rpn, packet, None) is False
+
+
+class TestNodeNumConversion:
+    """Tests for the to_node_num function and canonical node filtering."""
+
+    def test_to_node_num_integer_input(self):
+        """Test to_node_num with integer input."""
+        assert to_node_num(42) == 42
+        assert to_node_num(0) == 0
+        assert to_node_num(2733366304) == 2733366304
+
+    def test_to_node_num_decimal_string(self):
+        """Test to_node_num with decimal string input."""
+        assert to_node_num("42") == 42
+        assert to_node_num("0") == 0
+        assert to_node_num("2733366304") == 2733366304
+
+    def test_to_node_num_hex_format(self):
+        """Test to_node_num with hex format (no !)."""
+        assert to_node_num("a2ebdc20") == 0xa2ebdc20
+        assert to_node_num("A2EBDC20") == 0xA2EBDC20
+        assert to_node_num("ff") == 0xff
+        assert to_node_num("0") == 0
+
+    def test_to_node_num_bang_hex_format(self):
+        """Test to_node_num with !hex format."""
+        assert to_node_num("!a2ebdc20") == 0xa2ebdc20
+        assert to_node_num("!A2EBDC20") == 0xA2EBDC20
+        assert to_node_num("!ff") == 0xff
+        assert to_node_num("!0") == 0
+
+    def test_to_node_num_empty_string(self):
+        """Test to_node_num with empty string."""
+        assert to_node_num("") == 0
+
+    def test_to_node_num_non_numeric_strings(self):
+        """Test to_node_num with non-numeric strings (should return as-is for backward compatibility)."""
+        assert to_node_num("nodeA") == "nodeA"
+        assert to_node_num("!xyz") == "!xyz"
+        assert to_node_num("xyz") == "xyz"
+
+    def test_canonical_node_filtering_decimal_hex_bang_hex(self):
+        """Test that decimal, hex, and !hex formats all match the same packet."""
+        evaluator = FilterEvaluator()
+        
+        # Create a packet with node ID 2733366304 (0xa2ebdc20)
+        packet = {"fromId": "!a2ebdc20", "toId": "nodeB"}
+        
+        # All three formats should match
+        rpn_decimal: List[Union[Tuple[str, str, str], str]] = [("node", "src", "2733366304")]
+        rpn_hex: List[Union[Tuple[str, str, str], str]] = [("node", "src", "a2ebdc20")]
+        rpn_bang_hex: List[Union[Tuple[str, str, str], str]] = [("node", "src", "!a2ebdc20")]
+        
+        assert evaluator.evaluate_rpn(rpn_decimal, packet) is True
+        assert evaluator.evaluate_rpn(rpn_hex, packet) is True
+        assert evaluator.evaluate_rpn(rpn_bang_hex, packet) is True
+
+    def test_canonical_node_filtering_legacy_field_names(self):
+        """Test that filtering works with legacy field names 'from' and 'to'."""
+        evaluator = FilterEvaluator()
+        
+        # Create a packet with legacy field names
+        packet = {"from": "!a2ebdc20", "to": "nodeB"}
+        
+        # Should still match using canonical conversion
+        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "2733366304")]
+        assert evaluator.evaluate_rpn(rpn, packet) is True
+
+    def test_canonical_node_filtering_mixed_formats(self):
+        """Test filtering with mixed node ID formats in packets and filters."""
+        evaluator = FilterEvaluator()
+        
+        # Packet with decimal fromId, hex toId
+        packet = {"fromId": "2733366304", "toId": "!deadbeef"}
+        
+        # Filter for hex format should match decimal packet field
+        rpn_src: List[Union[Tuple[str, str, str], str]] = [("node", "src", "a2ebdc20")]
+        assert evaluator.evaluate_rpn(rpn_src, packet) is True
+        
+        # Filter for decimal format should match hex packet field
+        rpn_dst: List[Union[Tuple[str, str, str], str]] = [("node", "dst", str(0xdeadbeef))]
+        assert evaluator.evaluate_rpn(rpn_dst, packet) is True
 
 
 class TestConvenienceFunctions:
