@@ -594,6 +594,106 @@ class TestFilterEvaluator:
         rpn: List[Union[Tuple[str, str, str], str]] = [("user", "src", "Alice")]
         assert evaluator.evaluate_rpn(rpn, packet, None) is False
 
+    def test_user_filter_safe_behavior(self):
+        """Test user filter safe behavior with missing interface or nodes."""
+        evaluator = FilterEvaluator()
+        packet = self.create_packet(fromId="!1111", toId="!2222")
+
+        # Test with None interface
+        rpn: List[Union[Tuple[str, str, str], str]] = [("user", "src", "Alice")]
+        assert evaluator.evaluate_rpn(rpn, packet, None) is False
+
+        # Test with interface without nodes attribute
+        class InterfaceWithoutNodes:
+            pass
+
+        interface_no_nodes = InterfaceWithoutNodes()
+        assert evaluator.evaluate_rpn(rpn, packet, interface_no_nodes) is False
+
+        # Test with interface with empty nodes
+        class InterfaceWithEmptyNodes:
+            def __init__(self):
+                self.nodes = {}
+
+        interface_empty_nodes = InterfaceWithEmptyNodes()
+        assert evaluator.evaluate_rpn(rpn, packet, interface_empty_nodes) is False
+
+        # Test with interface with None nodes
+        class InterfaceWithNoneNodes:
+            def __init__(self):
+                self.nodes = None
+
+        interface_none_nodes = InterfaceWithNoneNodes()
+        assert evaluator.evaluate_rpn(rpn, packet, interface_none_nodes) is False
+
+    def test_user_filter_with_alternative_field_names(self):
+        """Test user filter with alternative field names (long_name/short_name)."""
+        evaluator = FilterEvaluator()
+
+        # Create mock interface with alternative field names
+        class MockInterfaceAltNames:
+            def __init__(self):
+                self.nodes = {
+                    "!id": {"user": {"long_name": "ShutterBug", "short_name": "👍"}},
+                }
+
+        mock_interface = MockInterfaceAltNames()
+        packet = self.create_packet(fromId="!id", toId="!other")
+
+        # Test matching long_name
+        rpn: List[Union[Tuple[str, str, str], str]] = [("user", "src", "ShutterBug")]
+        assert evaluator.evaluate_rpn(rpn, packet, mock_interface) is True
+
+        # Test matching short_name (emoji)
+        rpn: List[Union[Tuple[str, str, str], str]] = [("user", "src", "👍")]
+        assert evaluator.evaluate_rpn(rpn, packet, mock_interface) is True
+
+        # Test non-matching name
+        rpn: List[Union[Tuple[str, str, str], str]] = [("user", "src", "NonExistent")]
+        assert evaluator.evaluate_rpn(rpn, packet, mock_interface) is False
+
+    def test_user_filter_mixed_field_names(self):
+        """Test user filter with mixed field naming (some nodes have longName, others have long_name)."""
+        evaluator = FilterEvaluator()
+
+        class MockInterfaceMixed:
+            def __init__(self):
+                self.nodes = {
+                    "!node1": {"user": {"longName": "User1", "shortName": "U1"}},
+                    "!node2": {"user": {"long_name": "User2", "short_name": "U2"}},
+                    "!node3": {"user": {"longName": "User3", "short_name": "U3"}},  # mixed
+                    "!node4": {"user": {"long_name": "User4", "shortName": "U4"}},  # mixed
+                }
+
+        mock_interface = MockInterfaceMixed()
+
+        # Test traditional field names
+        packet = self.create_packet(fromId="!node1", toId="!other")
+        rpn: List[Union[Tuple[str, str, str], str]] = [("user", "src", "User1")]
+        assert evaluator.evaluate_rpn(rpn, packet, mock_interface) is True
+        rpn = [("user", "src", "U1")]
+        assert evaluator.evaluate_rpn(rpn, packet, mock_interface) is True
+
+        # Test alternative field names
+        packet = self.create_packet(fromId="!node2", toId="!other")
+        rpn: List[Union[Tuple[str, str, str], str]] = [("user", "src", "User2")]
+        assert evaluator.evaluate_rpn(rpn, packet, mock_interface) is True
+        rpn = [("user", "src", "U2")]
+        assert evaluator.evaluate_rpn(rpn, packet, mock_interface) is True
+
+        # Test mixed field names - prefer longName/shortName if both exist
+        packet = self.create_packet(fromId="!node3", toId="!other")
+        rpn: List[Union[Tuple[str, str, str], str]] = [("user", "src", "User3")]
+        assert evaluator.evaluate_rpn(rpn, packet, mock_interface) is True
+        rpn = [("user", "src", "U3")]
+        assert evaluator.evaluate_rpn(rpn, packet, mock_interface) is True
+
+        packet = self.create_packet(fromId="!node4", toId="!other")
+        rpn: List[Union[Tuple[str, str, str], str]] = [("user", "src", "User4")]
+        assert evaluator.evaluate_rpn(rpn, packet, mock_interface) is True
+        rpn = [("user", "src", "U4")]
+        assert evaluator.evaluate_rpn(rpn, packet, mock_interface) is True
+
 
 class TestNodeNumConversion:
     """Tests for the to_node_num function and canonical node filtering."""

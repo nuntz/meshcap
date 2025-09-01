@@ -395,8 +395,9 @@ class FilterEvaluator:
             if not user_info:
                 return False
 
-            long_name = user_info.get("longName", "")
-            short_name = user_info.get("shortName", "")
+            # Check both possible field names for long and short names
+            long_name = user_info.get("longName", "") or user_info.get("long_name", "")
+            short_name = user_info.get("shortName", "") or user_info.get("short_name", "")
 
             return long_name == value or short_name == value
 
