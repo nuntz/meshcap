@@ -7,6 +7,7 @@ from typing import Dict, Union, Optional, Any
 import meshtastic.serial_interface
 from pubsub import pub
 from .filter import parse_filter, evaluate_filter, FilterError
+from .identifiers import to_node_num, to_user_id, NodeBook
 
 
 class MeshCap:
@@ -260,6 +261,42 @@ class MeshCap:
             id2_str = str(id2)
 
         return id1_str != id2_str
+
+    def format_node_label(self, interface, node, label_mode="named-with-hex", no_resolve=False):
+        """Format a node identifier according to the specified label mode.
+        
+        Args:
+            interface: The Meshtastic interface object for node lookups (can be None)
+            node (int|str): The node identifier (int node number or str '!nodeid')
+            label_mode (str): The label mode - "hex-only", "named-only", or "named-with-hex"
+            no_resolve (bool): If True, skip node name resolution
+            
+        Returns:
+            str: Formatted node label string
+        """
+        # Canonicalize with to_node_num
+        node_num = to_node_num(node)
+        user_id = to_user_id(node_num)
+        
+        # If no_resolve is True, return user_id directly
+        if no_resolve:
+            return user_id
+        
+        # Use NodeBook to get node information
+        node_book = NodeBook(interface)
+        node_label = node_book.get(node_num)
+        
+        # Handle different label modes
+        if label_mode == "hex-only":
+            return user_id
+        elif label_mode == "named-only":
+            best = node_label.best()
+            return best if best != user_id else user_id
+        elif label_mode == "named-with-hex":
+            best = node_label.best()
+            return f"{best}({user_id})" if best != user_id else user_id
+        else:
+            raise ValueError(f"Unknown label_mode: {label_mode}")
 
     def _format_packet(self, packet, interface, no_resolve, verbose=False):
         """Format a packet dictionary into a display string.

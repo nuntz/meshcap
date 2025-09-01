@@ -788,3 +788,154 @@ class TestNewFormattingFeatures:
         expected = "[2023-10-19 16:00:00] Ch:3 -85dBm/10.0dB Hop:0 from:Known Old Node (!abc12345) to:!def67890 Position: lat=40.0, lon=-74.0"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == expected
+
+
+class TestFormatNodeLabel:
+    """Test cases for the format_node_label method."""
+
+    def test_format_node_label_no_resolve(self):
+        """Test format_node_label with no_resolve=True returns user_id."""
+        mock_interface = MockInterface(
+            {"!a1b2c3d4": {"user": {"longName": "Alice Node"}}}
+        )
+        
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+        
+        result = capture.format_node_label(mock_interface, "!a1b2c3d4", no_resolve=True)
+        assert result == "!a1b2c3d4"
+        
+        result = capture.format_node_label(mock_interface, 123456789, no_resolve=True)
+        assert result == "!075bcd15"
+
+    def test_format_node_label_hex_only_mode(self):
+        """Test format_node_label with hex-only mode returns user_id."""
+        mock_interface = MockInterface(
+            {"!a1b2c3d4": {"user": {"longName": "Alice Node"}}}
+        )
+        
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+        
+        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="hex-only")
+        assert result == "!a1b2c3d4"
+
+    def test_format_node_label_named_only_mode_with_long_name(self):
+        """Test format_node_label with named-only mode returns best name."""
+        mock_interface = MockInterface(
+            {"!a1b2c3d4": {"user": {"longName": "Alice Node"}}}
+        )
+        
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+        
+        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-only")
+        assert result == "Alice Node"
+
+    def test_format_node_label_named_only_mode_no_name_fallback(self):
+        """Test format_node_label with named-only mode falls back to user_id when no name available."""
+        mock_interface = MockInterface(
+            {"!a1b2c3d4": {}}  # No user data
+        )
+        
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+        
+        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-only")
+        assert result == "!a1b2c3d4"
+
+    def test_format_node_label_named_with_hex_mode_with_long_name(self):
+        """Test format_node_label with named-with-hex mode returns name and hex."""
+        mock_interface = MockInterface(
+            {"!a1b2c3d4": {"user": {"longName": "Alice Node"}}}
+        )
+        
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+        
+        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-with-hex")
+        assert result == "Alice Node(!a1b2c3d4)"
+
+    def test_format_node_label_named_with_hex_mode_no_name_fallback(self):
+        """Test format_node_label with named-with-hex mode falls back to user_id when no name available."""
+        mock_interface = MockInterface(
+            {"!a1b2c3d4": {}}  # No user data
+        )
+        
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+        
+        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-with-hex")
+        assert result == "!a1b2c3d4"
+
+    def test_format_node_label_with_short_name_priority(self):
+        """Test format_node_label prefers shortName over longName."""
+        mock_interface = MockInterface(
+            {"!a1b2c3d4": {"user": {"longName": "Alice Long Node Name", "shortName": "Alice"}}}
+        )
+        
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+        
+        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-only")
+        assert result == "Alice"
+        
+        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-with-hex")
+        assert result == "Alice(!a1b2c3d4)"
+
+    def test_format_node_label_with_empty_short_name(self):
+        """Test format_node_label handles empty/whitespace shortName correctly."""
+        mock_interface = MockInterface(
+            {"!a1b2c3d4": {"user": {"longName": "Alice Node", "shortName": "   "}}}
+        )
+        
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+        
+        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-only")
+        assert result == "Alice Node"  # Falls back to longName since shortName is whitespace
+
+    def test_format_node_label_integer_node_input(self):
+        """Test format_node_label handles integer node input correctly."""
+        mock_interface = MockInterface(
+            {"!075bcd15": {"user": {"longName": "Node 123456789"}}}
+        )
+        
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+        
+        result = capture.format_node_label(mock_interface, 123456789, label_mode="named-with-hex")
+        assert result == "Node 123456789(!075bcd15)"
+
+    def test_format_node_label_no_interface(self):
+        """Test format_node_label handles None interface correctly."""
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+        
+        result = capture.format_node_label(None, "!a1b2c3d4", label_mode="named-with-hex")
+        assert result == "!a1b2c3d4"  # Falls back to user_id
+
+    def test_format_node_label_invalid_mode(self):
+        """Test format_node_label raises ValueError for invalid label_mode."""
+        mock_interface = MockInterface({})
+        
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+        
+        try:
+            capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="invalid-mode")
+            assert False, "Should have raised ValueError"
+        except ValueError as e:
+            assert "Unknown label_mode: invalid-mode" in str(e)
+
+    def test_format_node_label_default_mode(self):
+        """Test format_node_label uses named-with-hex as default mode."""
+        mock_interface = MockInterface(
+            {"!a1b2c3d4": {"user": {"longName": "Alice Node"}}}
+        )
+        
+        mock_args = Mock()
+        capture = MeshCap(mock_args)
+        
+        result = capture.format_node_label(mock_interface, "!a1b2c3d4")
+        assert result == "Alice Node(!a1b2c3d4)"
