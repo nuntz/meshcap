@@ -87,10 +87,35 @@ class NodeBook:
         if node_num in self._cache:
             return self._cache[node_num]
         
-        # For now, create NodeLabel with just node_num and user_id
-        # Future enhancement will query interface.nodes when available
         user_id = to_user_id(node_num)
-        node_label = NodeLabel(node_num=node_num, user_id=user_id)
+        long_name = None
+        short_name = None
+        
+        # Try to resolve name from interface.nodes with schema tolerance
+        if self.interface and hasattr(self.interface, "nodes"):
+            try:
+                # Try to find node using user_id format
+                node_data = self.interface.nodes.get(user_id)
+                if node_data:
+                    # Get user data with fallback for different schema versions
+                    user = node_data.get("user") or node_data.get("userInfo") or {}
+                    # Try different field name variations
+                    long_name = user.get("longName") or user.get("long_name")
+                    # For short_name, check if key exists to preserve empty strings
+                    if "shortName" in user:
+                        short_name = user["shortName"]
+                    elif "short_name" in user:
+                        short_name = user["short_name"]
+            except (AttributeError, TypeError):
+                # Interface.nodes is not accessible or not a dict
+                pass
+        
+        node_label = NodeLabel(
+            node_num=node_num, 
+            user_id=user_id,
+            long_name=long_name,
+            short_name=short_name
+        )
         
         self._cache[node_num] = node_label
         return node_label
