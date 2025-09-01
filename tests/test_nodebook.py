@@ -1,7 +1,6 @@
 """Tests for NodeBook cache functionality."""
 
-import pytest
-from meshcap.identifiers import NodeBook, NodeLabel
+from meshcap.identifiers import NodeBook
 
 
 class MockInterface:
