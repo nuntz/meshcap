@@ -1328,3 +1328,86 @@ class TestGoldenExamples:
         expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:3 NH:NH Node (!075bcd15) from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Directed hop"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == expected
+
+    def test_next_hop_no_resolve_hex_only(self):
+        """Test that when no_resolve=True, nextHop shows only hex ID without name resolution."""
+        packet = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 5,
+            "rxRssi": -85,
+            "rxSnr": 12.5,
+            "hopLimit": 3,
+            "fromId": "!a1b2c3d4",
+            "toId": "!e5f6a7b8",
+            "nextHop": 123456789,
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Directed hop"},
+        }
+
+        # Mock interface with node resolution data (but will be ignored due to no_resolve)
+        mock_interface = MockInterface(
+            {
+                "!075bcd15": {"user": {"longName": "NH Node"}},  # hex for 123456789
+                "!a1b2c3d4": {"user": {"longName": "Alice Node"}},
+                "!e5f6a7b8": {"user": {"longName": "Bob Node"}},
+            }
+        )
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        
+        # With no_resolve=True, should show only hex IDs without name resolution
+        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:3 NH:!075bcd15 from:!a1b2c3d4 to:!e5f6a7b8 Text: Directed hop"
+        result = capture._format_packet(packet, mock_interface, True)  # no_resolve=True
+        assert result == expected
+
+    def test_next_hop_absent_or_zero_hidden(self):
+        """Test that when nextHop is absent or zero, NH: field is not displayed."""
+        # Case A: No nextHop key at all
+        packet_no_key = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 5,
+            "rxRssi": -85,
+            "rxSnr": 12.5,
+            "hopLimit": 3,
+            "fromId": "!a1b2c3d4",
+            "toId": "!e5f6a7b8",
+            # Note: no nextHop key
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "No next hop"},
+        }
+
+        mock_interface = MockInterface(
+            {
+                "!a1b2c3d4": {"user": {"longName": "Alice Node"}},
+                "!e5f6a7b8": {"user": {"longName": "Bob Node"}},
+            }
+        )
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        
+        # Should NOT contain " NH:" substring
+        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:3 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: No next hop"
+        result = capture._format_packet(packet_no_key, mock_interface, False)
+        assert result == expected
+        assert " NH:" not in result
+
+        # Case B: nextHop is 0
+        packet_zero = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 5,
+            "rxRssi": -85,
+            "rxSnr": 12.5,
+            "hopLimit": 3,
+            "fromId": "!a1b2c3d4",
+            "toId": "!e5f6a7b8",
+            "nextHop": 0,  # Zero value
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Zero next hop"},
+        }
+
+        # Should NOT contain " NH:" substring
+        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:3 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Zero next hop"
+        result = capture._format_packet(packet_zero, mock_interface, False)
+        assert result == expected
+        assert " NH:" not in result
