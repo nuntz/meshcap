@@ -295,6 +295,24 @@ class MeshCap:
         hop_limit = packet.get("hopLimit", 0)
         hop_info = f" Hop:{hop_limit}"
 
+        # Optional next-hop display (only when set and non-zero)
+        next_hop_info = ""
+        next_hop_candidate = packet.get("nextHop") or packet.get("next_hop")
+        if next_hop_candidate is not None:
+            try:
+                # Zero means "unset" for next hop
+                if to_node_num(next_hop_candidate) != 0:
+                    nh_label = self.format_node_label(
+                        interface,
+                        next_hop_candidate,
+                        label_mode=self.args.label_mode,
+                        no_resolve=no_resolve,
+                    )
+                    next_hop_info = f" NH:{nh_label}"
+            except Exception:
+                # Be conservative: if parsing fails, omit next-hop
+                pass
+
         # Extract canonical from/to candidates
         from_candidate = packet.get("fromId") or packet.get("from")
         to_candidate = packet.get("toId") or packet.get("to")
@@ -337,7 +355,7 @@ class MeshCap:
             packet_type = "Encrypted"
             payload = f"length={len(packet.get('encrypted', ''))}"
 
-        return f"[{timestamp}] Ch:{channel_hash} {signal}{hop_info} {address_str} {packet_type}: {payload}"
+        return f"[{timestamp}] Ch:{channel_hash} {signal}{hop_info}{next_hop_info} {address_str} {packet_type}: {payload}"
 
 
 def main():
