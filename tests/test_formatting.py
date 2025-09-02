@@ -1411,3 +1411,35 @@ class TestGoldenExamples:
         result = capture._format_packet(packet_zero, mock_interface, False)
         assert result == expected
         assert " NH:" not in result
+
+    def test_next_hop_snake_case_key(self):
+        """Test that when next_hop (snake_case) is present, it shows NH:<label> after Hop:<N>."""
+        packet = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 5,
+            "rxRssi": -85,
+            "rxSnr": 12.5,
+            "hopLimit": 3,
+            "fromId": "!a1b2c3d4",
+            "toId": "!e5f6a7b8",
+            "next_hop": 123456789,  # Snake case instead of camelCase
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Directed hop"},
+        }
+
+        # Mock interface with node resolution data
+        mock_interface = MockInterface(
+            {
+                "!075bcd15": {"user": {"longName": "NH Node"}},  # hex for 123456789
+                "!a1b2c3d4": {"user": {"longName": "Alice Node"}},
+                "!e5f6a7b8": {"user": {"longName": "Bob Node"}},
+            }
+        )
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        
+        # Expected format includes NH: field between Hop:3 and from:
+        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:3 NH:NH Node (!075bcd15) from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Directed hop"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
