@@ -8,8 +8,8 @@ from meshcap.filter import (
     FilterError,
     parse_filter,
     evaluate_filter,
-    to_node_num,
 )
+from meshcap.identifiers import to_node_num
 
 
 class TestFilterParser:
@@ -244,8 +244,8 @@ class TestFilterEvaluator:
     def create_packet(self, **kwargs):
         """Helper to create test packets."""
         default = {
-            "fromId": "nodeA",
-            "toId": "nodeB",
+            "fromId": "!a2ebdc20",  # Valid hex node ID
+            "toId": "!deadbeef",     # Valid hex node ID
             "hopLimit": 3,
             "priority": "UNSET",
             "wantAck": False,
@@ -263,40 +263,40 @@ class TestFilterEvaluator:
     def test_node_filter_both(self):
         """Test node filter matching either src or dst."""
         evaluator = FilterEvaluator()
-        packet = self.create_packet(fromId="nodeA", toId="nodeB")
+        packet = self.create_packet()  # Uses default fromId="!a2ebdc20", toId="!deadbeef"
 
         # Should match source
-        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "both", "nodeA")]
+        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "both", "a2ebdc20")]
         assert evaluator.evaluate_rpn(rpn, packet) is True
 
-        # Should match destination
-        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "both", "nodeB")]
+        # Should match destination  
+        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "both", "deadbeef")]
         assert evaluator.evaluate_rpn(rpn, packet) is True
 
         # Should not match unknown node
-        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "both", "nodeC")]
+        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "both", "12345678")]
         assert evaluator.evaluate_rpn(rpn, packet) is False
 
     def test_src_node_filter(self):
         """Test src node filter."""
         evaluator = FilterEvaluator()
-        packet = self.create_packet(fromId="nodeA", toId="nodeB")
+        packet = self.create_packet()  # Uses default fromId="!a2ebdc20", toId="!deadbeef"
 
-        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "nodeA")]
+        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "a2ebdc20")]
         assert evaluator.evaluate_rpn(rpn, packet) is True
 
-        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "nodeB")]
+        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "deadbeef")]
         assert evaluator.evaluate_rpn(rpn, packet) is False
 
     def test_dst_node_filter(self):
         """Test dst node filter."""
         evaluator = FilterEvaluator()
-        packet = self.create_packet(fromId="nodeA", toId="nodeB")
+        packet = self.create_packet()  # Uses default fromId="!a2ebdc20", toId="!deadbeef"
 
-        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "dst", "nodeB")]
+        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "dst", "deadbeef")]
         assert evaluator.evaluate_rpn(rpn, packet) is True
 
-        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "dst", "nodeA")]
+        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "dst", "a2ebdc20")]
         assert evaluator.evaluate_rpn(rpn, packet) is False
 
     def test_port_filter(self):
@@ -406,12 +406,12 @@ class TestFilterEvaluator:
         """Test AND operator."""
         evaluator = FilterEvaluator()
         packet = self.create_packet(
-            fromId="nodeA", decoded={"portnum": "TEXT_MESSAGE_APP"}
-        )
+            decoded={"portnum": "TEXT_MESSAGE_APP"}
+        )  # Uses default fromId="!a2ebdc20"
 
         # Both conditions true
         rpn: List[Union[Tuple[str, str, str], str]] = [
-            ("node", "src", "nodeA"),
+            ("node", "src", "a2ebdc20"),
             ("port", "portnum", "text"),
             "and",
         ]
@@ -419,7 +419,7 @@ class TestFilterEvaluator:
 
         # First true, second false
         rpn: List[Union[Tuple[str, str, str], str]] = [
-            ("node", "src", "nodeA"),
+            ("node", "src", "a2ebdc20"),
             ("port", "portnum", "position"),
             "and",
         ]
@@ -427,7 +427,7 @@ class TestFilterEvaluator:
 
         # First false, second true
         rpn: List[Union[Tuple[str, str, str], str]] = [
-            ("node", "src", "nodeB"),
+            ("node", "src", "deadbeef"),  # Different from a2ebdc20
             ("port", "portnum", "text"),
             "and",
         ]
@@ -435,7 +435,7 @@ class TestFilterEvaluator:
 
         # Both false
         rpn: List[Union[Tuple[str, str, str], str]] = [
-            ("node", "src", "nodeB"),
+            ("node", "src", "deadbeef"),  # Different from a2ebdc20
             ("port", "portnum", "position"),
             "and",
         ]
@@ -445,12 +445,12 @@ class TestFilterEvaluator:
         """Test OR operator."""
         evaluator = FilterEvaluator()
         packet = self.create_packet(
-            fromId="nodeA", decoded={"portnum": "TEXT_MESSAGE_APP"}
-        )
+            decoded={"portnum": "TEXT_MESSAGE_APP"}
+        )  # Uses default fromId="!a2ebdc20"
 
         # Both conditions true
         rpn: List[Union[Tuple[str, str, str], str]] = [
-            ("node", "src", "nodeA"),
+            ("node", "src", "a2ebdc20"),
             ("port", "portnum", "text"),
             "or",
         ]
@@ -458,7 +458,7 @@ class TestFilterEvaluator:
 
         # First true, second false
         rpn: List[Union[Tuple[str, str, str], str]] = [
-            ("node", "src", "nodeA"),
+            ("node", "src", "a2ebdc20"),
             ("port", "portnum", "position"),
             "or",
         ]
@@ -466,7 +466,7 @@ class TestFilterEvaluator:
 
         # First false, second true
         rpn: List[Union[Tuple[str, str, str], str]] = [
-            ("node", "src", "nodeB"),
+            ("node", "src", "deadbeef"),  # Different from a2ebdc20
             ("port", "portnum", "text"),
             "or",
         ]
@@ -474,7 +474,7 @@ class TestFilterEvaluator:
 
         # Both false
         rpn: List[Union[Tuple[str, str, str], str]] = [
-            ("node", "src", "nodeB"),
+            ("node", "src", "deadbeef"),  # Different from a2ebdc20
             ("port", "portnum", "position"),
             "or",
         ]
@@ -483,29 +483,27 @@ class TestFilterEvaluator:
     def test_not_operator(self):
         """Test NOT operator."""
         evaluator = FilterEvaluator()
-        packet = self.create_packet(fromId="nodeA")
+        packet = self.create_packet()  # Uses default fromId="!a2ebdc20"
 
         # True becomes False
-        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "nodeA"), "not"]
+        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "a2ebdc20"), "not"]
         assert evaluator.evaluate_rpn(rpn, packet) is False
 
         # False becomes True
-        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "nodeB"), "not"]
+        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "deadbeef"), "not"]
         assert evaluator.evaluate_rpn(rpn, packet) is True
 
     def test_complex_expression(self):
         """Test complex expression evaluation."""
         evaluator = FilterEvaluator()
         packet = self.create_packet(
-            fromId="nodeA",
-            toId="nodeB",
             decoded={"portnum": "TEXT_MESSAGE_APP"},
             hopLimit=5,
-        )
+        )  # Uses defaults fromId="!a2ebdc20", toId="!deadbeef"
 
-        # (src node nodeA and port text) or hop_limit > 10
+        # (src node a2ebdc20 and port text) or hop_limit > 10
         rpn: List[Union[Tuple[str, str, str], str]] = [
-            ("node", "src", "nodeA"),
+            ("node", "src", "a2ebdc20"),
             ("port", "portnum", "text"),
             "and",
             ("hop_limit", ">", "10"),
@@ -513,9 +511,9 @@ class TestFilterEvaluator:
         ]
         assert evaluator.evaluate_rpn(rpn, packet) is True  # First part is true
 
-        # (src node nodeB and port text) or hop_limit > 10
+        # (src node deadbeef and port text) or hop_limit > 10
         rpn: List[Union[Tuple[str, str, str], str]] = [
-            ("node", "src", "nodeB"),
+            ("node", "src", "deadbeef"),  # This doesn't match the fromId
             ("port", "portnum", "text"),
             "and",
             ("hop_limit", ">", "10"),
@@ -705,10 +703,10 @@ class TestNodeNumConversion:
         assert to_node_num(2733366304) == 2733366304
 
     def test_to_node_num_decimal_string(self):
-        """Test to_node_num with decimal string input."""
-        assert to_node_num("42") == 42
+        """Test to_node_num with hex string input (centralized function treats all strings as hex)."""
+        assert to_node_num("2a") == 42  # 42 in hex is 2a
         assert to_node_num("0") == 0
-        assert to_node_num("2733366304") == 2733366304
+        assert to_node_num("a2ebdc20") == 2733366304  # 2733366304 in hex is a2ebdc20
 
     def test_to_node_num_hex_format(self):
         """Test to_node_num with hex format (no !)."""
@@ -729,24 +727,25 @@ class TestNodeNumConversion:
         assert to_node_num("") == 0
 
     def test_to_node_num_non_numeric_strings(self):
-        """Test to_node_num with non-numeric strings (should return as-is for backward compatibility)."""
-        assert to_node_num("nodeA") == "nodeA"
-        assert to_node_num("!xyz") == "!xyz"
-        assert to_node_num("xyz") == "xyz"
+        """Test to_node_num with non-numeric strings (should raise ValueError)."""
+        with pytest.raises(ValueError):
+            to_node_num("nodeA")
+        with pytest.raises(ValueError):
+            to_node_num("!xyz")
+        with pytest.raises(ValueError):
+            to_node_num("xyz")
 
     def test_canonical_node_filtering_decimal_hex_bang_hex(self):
-        """Test that decimal, hex, and !hex formats all match the same packet."""
+        """Test that hex and !hex formats all match the same packet."""
         evaluator = FilterEvaluator()
         
         # Create a packet with node ID 2733366304 (0xa2ebdc20)
-        packet = {"fromId": "!a2ebdc20", "toId": "nodeB"}
+        packet = {"fromId": "!a2ebdc20", "toId": "!deadbeef"}
         
-        # All three formats should match
-        rpn_decimal: List[Union[Tuple[str, str, str], str]] = [("node", "src", "2733366304")]
+        # Hex and !hex formats should match
         rpn_hex: List[Union[Tuple[str, str, str], str]] = [("node", "src", "a2ebdc20")]
         rpn_bang_hex: List[Union[Tuple[str, str, str], str]] = [("node", "src", "!a2ebdc20")]
         
-        assert evaluator.evaluate_rpn(rpn_decimal, packet) is True
         assert evaluator.evaluate_rpn(rpn_hex, packet) is True
         assert evaluator.evaluate_rpn(rpn_bang_hex, packet) is True
 
@@ -755,25 +754,25 @@ class TestNodeNumConversion:
         evaluator = FilterEvaluator()
         
         # Create a packet with legacy field names
-        packet = {"from": "!a2ebdc20", "to": "nodeB"}
+        packet = {"from": "!a2ebdc20", "to": "!deadbeef"}
         
         # Should still match using canonical conversion
-        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "2733366304")]
+        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "a2ebdc20")]
         assert evaluator.evaluate_rpn(rpn, packet) is True
 
     def test_canonical_node_filtering_mixed_formats(self):
         """Test filtering with mixed node ID formats in packets and filters."""
         evaluator = FilterEvaluator()
         
-        # Packet with decimal fromId, hex toId
-        packet = {"fromId": "2733366304", "toId": "!deadbeef"}
+        # Packet with hex fromId and !hex toId  
+        packet = {"fromId": "a2ebdc20", "toId": "!deadbeef"}
         
-        # Filter for hex format should match decimal packet field
-        rpn_src: List[Union[Tuple[str, str, str], str]] = [("node", "src", "a2ebdc20")]
+        # Filter with !hex format should match hex packet field
+        rpn_src: List[Union[Tuple[str, str, str], str]] = [("node", "src", "!a2ebdc20")]
         assert evaluator.evaluate_rpn(rpn_src, packet) is True
         
-        # Filter for decimal format should match hex packet field
-        rpn_dst: List[Union[Tuple[str, str, str], str]] = [("node", "dst", str(0xdeadbeef))]
+        # Filter with hex format should match !hex packet field
+        rpn_dst: List[Union[Tuple[str, str, str], str]] = [("node", "dst", "deadbeef")]
         assert evaluator.evaluate_rpn(rpn_dst, packet) is True
 
 
@@ -788,12 +787,12 @@ class TestConvenienceFunctions:
 
     def test_evaluate_filter_function(self):
         """Test evaluate_filter convenience function."""
-        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "nodeA")]
-        packet = {"fromId": "nodeA", "toId": "nodeB"}
+        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "a2ebdc20")]
+        packet = {"fromId": "!a2ebdc20", "toId": "!deadbeef"}
 
         assert evaluate_filter(rpn, packet) is True
 
-        packet = {"fromId": "nodeB", "toId": "nodeC"}
+        packet = {"fromId": "deadbeef", "toId": "12345678"}
         assert evaluate_filter(rpn, packet) is False
 
 
