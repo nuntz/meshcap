@@ -210,29 +210,6 @@ class MeshCap:
         
         return result
 
-    def _node_ids_differ(self, id1, id2):
-        """Check if two node identifiers represent different nodes.
-
-        Args:
-            id1: First node identifier (str or int)
-            id2: Second node identifier (str or int)
-
-        Returns:
-            bool: True if the IDs represent different nodes
-        """
-        # Convert both to consistent format for comparison
-        if isinstance(id1, int):
-            id1_str = f"!{id1:08x}"
-        else:
-            id1_str = str(id1)
-
-        if isinstance(id2, int):
-            id2_str = f"!{id2:08x}"
-        else:
-            id2_str = str(id2)
-
-        return id1_str != id2_str
-
     def format_node_label(self, interface, node, label_mode="named-with-hex", no_resolve=False):
         """Format a node identifier according to the specified label mode.
         
