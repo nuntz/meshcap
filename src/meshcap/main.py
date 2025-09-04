@@ -280,8 +280,6 @@ class MeshCap:
         Returns:
             str: Formatted packet string
         """
-        # Store resolution setting for use by helper methods
-        self.args.no_resolve = no_resolve
         timestamp = datetime.fromtimestamp(
             packet.get("rxTime", 0), timezone.utc
         ).strftime("%Y-%m-%d %H:%M:%S")
