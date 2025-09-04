@@ -2,6 +2,7 @@ import argparse
 import sys
 import time
 import pickle
+import logging
 from datetime import datetime, timezone
 from typing import Dict, Union, Optional, Any
 import meshtastic.serial_interface
@@ -41,7 +42,7 @@ class MeshCap:
                 if not evaluate_filter(self.filter_rpn, packet, interface):
                     return  # Packet doesn't match filter, skip processing
             except FilterError as e:
-                print(f"Warning: Filter evaluation error: {e}", file=sys.stderr)
+                logging.warning(f"Filter evaluation error: {e}")
                 return
 
         # Write packet to file if writer is enabled
@@ -357,6 +358,13 @@ class MeshCap:
 
 
 def main():
+    # Configure logging
+    logging.basicConfig(
+        level=logging.WARNING,
+        format='%(levelname)s: %(message)s',
+        stream=sys.stderr
+    )
+    
     parser = argparse.ArgumentParser(description="Meshtastic network dump tool")
     parser.add_argument(
         "-p",
