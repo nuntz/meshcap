@@ -172,68 +172,31 @@ class MeshCap:
             print(f"Error: Connection to device failed: {e}", file=sys.stderr)
             sys.exit(1)
 
-    def _resolve_node_info(
-        self,
-        interface: Optional[Any],
-        node_identifier: Union[int, str],
-        identifier_type: str,
-    ) -> Dict[str, Union[str, int]]:
-        """Resolve a node identifier to a formatted display string with label.
-
-        Args:
-            interface: The Meshtastic interface object for node lookups (can be None)
-            node_identifier: The node identifier (int node number or str '!nodeid')
-            identifier_type: The type of identifier ('from', 'to', 'source', 'dest')
-
-        Returns:
-            Dictionary with 'label', 'value' and optional 'node_number' keys
-        """
-        from .identifiers import to_node_num
-        
-        # Canonicalize the node identifier to get node_number
-        node_number = to_node_num(node_identifier)
-        
-        # Use format_node_label to get the formatted value
-        formatted_value = self.format_node_label(
-            interface, node_identifier, label_mode=getattr(self.args, 'label_mode', 'named-with-hex'), no_resolve=getattr(self.args, 'no_resolve', False)
-        )
-        
-        # Build return dict with label and value
-        result = {
-            "label": identifier_type,
-            "value": formatted_value,
-        }
-        
-        # Add node_number if it's available and different from the original identifier
-        if isinstance(node_identifier, int):
-            result["node_number"] = node_number
-        
-        return result
 
     def format_node_label(self, interface, node, label_mode="named-with-hex", no_resolve=False):
         """Format a node identifier according to the specified label mode.
-        
+
         Args:
             interface: The Meshtastic interface object for node lookups (can be None)
             node (int|str): The node identifier (int node number or str '!nodeid')
             label_mode (str): The label mode - "hex-only", "named-only", or "named-with-hex"
             no_resolve (bool): If True, skip node name resolution
-            
+
         Returns:
             str: Formatted node label string
         """
         # Canonicalize with to_node_num
         node_num = to_node_num(node)
         user_id = to_user_id(node_num)
-        
+
         # If no_resolve is True, return user_id directly
         if no_resolve:
             return user_id
-        
+
         # Use NodeBook to get node information
         node_book = NodeBook(interface)
         node_label = node_book.get(node_num)
-        
+
         # Handle different label modes
         if label_mode == "hex-only":
             return user_id
@@ -295,13 +258,13 @@ class MeshCap:
 
         # Build clean address string with canonical addressing
         address_parts = []
-        
+
         if from_candidate:
             from_label = self.format_node_label(interface, from_candidate, label_mode=self.args.label_mode, no_resolve=no_resolve)
             address_parts.append(f"from:{from_label}")
         else:
             address_parts.append("from:unknown")
-            
+
         if to_candidate:
             to_label = self.format_node_label(interface, to_candidate, label_mode=self.args.label_mode, no_resolve=no_resolve)
             address_parts.append(f"to:{to_label}")
@@ -341,7 +304,7 @@ def main():
         format='%(levelname)s: %(message)s',
         stream=sys.stderr
     )
-    
+
     parser = argparse.ArgumentParser(description="Meshtastic network dump tool")
     parser.add_argument(
         "-p",
@@ -393,11 +356,11 @@ def main():
     )
 
     args = parser.parse_args()
-    
+
     # Handle alias mapping: auto -> named-with-hex
     if args.label_mode == "auto":
         args.label_mode = "named-with-hex"
-    
+
     capture = MeshCap(args)
     capture.run()
 
