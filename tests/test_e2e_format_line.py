@@ -1,5 +1,15 @@
 from unittest.mock import Mock
+from datetime import datetime, timezone
 from meshcap.main import MeshCap
+
+
+def local_ts_str(epoch: int) -> str:
+    """Convert epoch timestamp to local time string format used in packet output."""
+    return (
+        datetime.fromtimestamp(epoch, timezone.utc)
+        .astimezone()
+        .strftime("%Y-%m-%d %H:%M:%S")
+    )
 
 
 class MockInterface:
@@ -43,11 +53,12 @@ class TestE2EFormatLine:
         result = capture._format_packet(packet, mock_interface, False)
 
         # Assert the full line contains all expected components
-        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:3 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Test message"
+        ts = local_ts_str(1697731200)
+        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Test message"
         assert result == expected
 
         # Additional assertions to verify specific field formatting
-        assert "[2023-10-19 16:00:00]" in result  # Timestamp
+        assert f"[{local_ts_str(1697731200)}]" in result  # Timestamp
         assert "Ch:5" in result  # Channel
         assert "-85dBm/12.5dB" in result  # Signal strength
         assert "Hop:3" in result  # Hop limit

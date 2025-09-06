@@ -211,7 +211,9 @@ class MeshCap:
 
     def format_name(self, uid, interface, label_mode="named-with-hex"):
         """Format a node name using format_node_label for the given user ID."""
-        return self.format_node_label(interface, uid, label_mode=label_mode, no_resolve=False)
+        return self.format_node_label(
+            interface, uid, label_mode=label_mode, no_resolve=False
+        )
 
     def _format_packet(self, packet, interface, no_resolve, verbose=False):
         """Format a packet dictionary into a display string.
@@ -225,20 +227,24 @@ class MeshCap:
         Returns:
             str: Formatted packet string
         """
-        timestamp = datetime.fromtimestamp(
-            packet.get("rxTime", 0), timezone.utc
-        ).strftime("%Y-%m-%d %H:%M:%S")
+        # Convert rxTime (stored as UTC) to local time, keeping the same
+        # printable shape (YYYY-MM-DD HH:MM:SS) but reflecting local timezone.
+        timestamp = (
+            datetime.fromtimestamp(packet.get("rxTime", 0), timezone.utc)
+            .astimezone()  # -> local time
+            .strftime("%Y-%m-%d %H:%M:%S")
+        )
 
         channel_hash = str(packet.get("channel", 0))
 
         rssi = packet.get("rxRssi")
         snr = packet.get("rxSnr")
         parts = []
-        if rssi is not None: 
+        if rssi is not None:
             parts.append(f"{rssi}dBm")
         elif packet.get("rssi") is not None:
             parts.append(f"{packet.get('rssi')}dBm")
-        if snr is not None: 
+        if snr is not None:
             parts.append(f"{snr}dB")
         signal = "/".join(parts) if parts else "-"
 
@@ -263,7 +269,11 @@ class MeshCap:
                     except Exception:
                         pass
                 if len(matches) == 1:
-                    label = self.format_name(uid=matches[0], interface=interface, label_mode=self.args.label_mode)
+                    label = self.format_name(
+                        uid=matches[0],
+                        interface=interface,
+                        label_mode=self.args.label_mode,
+                    )
             next_hop_info = f" NH:{label or nh_str}"
 
         # Extract canonical from/to candidates
