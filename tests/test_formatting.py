@@ -722,7 +722,9 @@ class TestFormatNodeLabel:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
 
-        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="hex-only")
+        result = capture.format_node_label(
+            mock_interface, "!a1b2c3d4", label_mode="hex-only"
+        )
         assert result == "!a1b2c3d4"
 
     def test_format_node_label_named_only_mode_with_long_name(self):
@@ -735,7 +737,9 @@ class TestFormatNodeLabel:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
 
-        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-only")
+        result = capture.format_node_label(
+            mock_interface, "!a1b2c3d4", label_mode="named-only"
+        )
         assert result == "Alice Node"
 
     def test_format_node_label_named_only_mode_no_name_fallback(self):
@@ -748,7 +752,9 @@ class TestFormatNodeLabel:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
 
-        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-only")
+        result = capture.format_node_label(
+            mock_interface, "!a1b2c3d4", label_mode="named-only"
+        )
         assert result == "!a1b2c3d4"
 
     def test_format_node_label_named_with_hex_mode_with_long_name(self):
@@ -761,7 +767,9 @@ class TestFormatNodeLabel:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
 
-        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-with-hex")
+        result = capture.format_node_label(
+            mock_interface, "!a1b2c3d4", label_mode="named-with-hex"
+        )
         assert result == "Alice Node (!a1b2c3d4)"
 
     def test_format_node_label_named_with_hex_mode_no_name_fallback(self):
@@ -774,23 +782,33 @@ class TestFormatNodeLabel:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
 
-        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-with-hex")
+        result = capture.format_node_label(
+            mock_interface, "!a1b2c3d4", label_mode="named-with-hex"
+        )
         assert result == "!a1b2c3d4"
 
     def test_format_node_label_with_short_name_priority(self):
         """Test format_node_label prefers shortName over longName."""
         mock_interface = MockInterface(
-            {"!a1b2c3d4": {"user": {"longName": "Alice Long Node Name", "shortName": "Alice"}}}
+            {
+                "!a1b2c3d4": {
+                    "user": {"longName": "Alice Long Node Name", "shortName": "Alice"}
+                }
+            }
         )
 
         mock_args = Mock()
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
 
-        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-only")
+        result = capture.format_node_label(
+            mock_interface, "!a1b2c3d4", label_mode="named-only"
+        )
         assert result == "Alice"
 
-        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-with-hex")
+        result = capture.format_node_label(
+            mock_interface, "!a1b2c3d4", label_mode="named-with-hex"
+        )
         assert result == "Alice (!a1b2c3d4)"
 
     def test_format_node_label_with_empty_short_name(self):
@@ -803,8 +821,12 @@ class TestFormatNodeLabel:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
 
-        result = capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="named-only")
-        assert result == "Alice Node"  # Falls back to longName since shortName is whitespace
+        result = capture.format_node_label(
+            mock_interface, "!a1b2c3d4", label_mode="named-only"
+        )
+        assert (
+            result == "Alice Node"
+        )  # Falls back to longName since shortName is whitespace
 
     def test_format_node_label_integer_node_input(self):
         """Test format_node_label handles integer node input correctly."""
@@ -816,7 +838,9 @@ class TestFormatNodeLabel:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
 
-        result = capture.format_node_label(mock_interface, 123456789, label_mode="named-with-hex")
+        result = capture.format_node_label(
+            mock_interface, 123456789, label_mode="named-with-hex"
+        )
         assert result == "Node 123456789 (!075bcd15)"
 
     def test_format_node_label_no_interface(self):
@@ -825,7 +849,9 @@ class TestFormatNodeLabel:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
 
-        result = capture.format_node_label(None, "!a1b2c3d4", label_mode="named-with-hex")
+        result = capture.format_node_label(
+            None, "!a1b2c3d4", label_mode="named-with-hex"
+        )
         assert result == "!a1b2c3d4"  # Falls back to user_id
 
     def test_format_node_label_invalid_mode(self):
@@ -837,7 +863,9 @@ class TestFormatNodeLabel:
         capture = MeshCap(mock_args)
 
         try:
-            capture.format_node_label(mock_interface, "!a1b2c3d4", label_mode="invalid-mode")
+            capture.format_node_label(
+                mock_interface, "!a1b2c3d4", label_mode="invalid-mode"
+            )
             assert False, "Should have raised ValueError"
         except ValueError as e:
             assert "Unknown label_mode: invalid-mode" in str(e)
@@ -950,8 +978,8 @@ class TestGoldenExamples:
                 "position": {
                     "latitude": 37.7749,
                     "longitude": -122.4194,
-                    "altitude": 43
-                }
+                    "altitude": 43,
+                },
             },
         }
 
@@ -982,10 +1010,7 @@ class TestGoldenExamples:
             "toId": "!ffff5678",
             "decoded": {
                 "portnum": "POSITION_APP",
-                "position": {
-                    "latitude": 40.7128,
-                    "longitude": -74.0060
-                }
+                "position": {"latitude": 40.7128, "longitude": -74.0060},
             },
         }
 
@@ -1011,7 +1036,7 @@ class TestGoldenExamples:
             "toId": "!bbbb8888",
             "decoded": {
                 "portnum": "POSITION_APP",
-                "position": {}  # Empty position data
+                "position": {},  # Empty position data
             },
         }
 
@@ -1083,16 +1108,16 @@ class TestGoldenExamples:
         test_cases = [
             {
                 "rxTime": 0,  # Unix epoch
-                "expected_time": "[1970-01-01 00:00:00]"
+                "expected_time": "[1970-01-01 00:00:00]",
             },
             {
                 "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
-                "expected_time": "[2023-10-19 16:00:00]"
+                "expected_time": "[2023-10-19 16:00:00]",
             },
             {
                 "rxTime": 1735689600,  # 2025-01-01 00:00:00 UTC (future date)
-                "expected_time": "[2025-01-01 00:00:00]"
-            }
+                "expected_time": "[2025-01-01 00:00:00]",
+            },
         ]
 
         mock_interface = MockInterface({})
@@ -1112,7 +1137,9 @@ class TestGoldenExamples:
             }
 
             result = capture._format_packet(packet, mock_interface, False)
-            assert result.startswith(case["expected_time"]), f"Expected {case['expected_time']}, got: {result[:21]}"
+            assert result.startswith(case["expected_time"]), (
+                f"Expected {case['expected_time']}, got: {result[:21]}"
+            )
 
     def test_hop_limit_display_golden(self):
         """Golden example: Hop limit display in packet formatting."""
@@ -1173,14 +1200,14 @@ class TestGoldenExamples:
             "hopLimit": 3,
             "fromId": "!a1b2c3d4",
             "toId": "!e5f6a7b8",
-            "nextHop": 123456789,
+            "nextHop": 0x15,
             "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Directed hop"},
         }
 
         # Mock interface with node resolution data
         mock_interface = MockInterface(
             {
-                "!075bcd15": {"user": {"longName": "NH Node"}},  # hex for 123456789
+                "!a1b2c315": {"user": {"longName": "NH Node"}},  # ends with 15 to match nextHop 0x15
                 "!a1b2c3d4": {"user": {"longName": "Alice Node"}},
                 "!e5f6a7b8": {"user": {"longName": "Bob Node"}},
             }
@@ -1191,7 +1218,7 @@ class TestGoldenExamples:
         capture = MeshCap(mock_args)
 
         # Expected format includes NH: field between Hop:3 and from:
-        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:3 NH:NH Node (!075bcd15) from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Directed hop"
+        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:3 NH:NH Node (!a1b2c315) from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Directed hop"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == expected
 
@@ -1205,14 +1232,14 @@ class TestGoldenExamples:
             "hopLimit": 3,
             "fromId": "!a1b2c3d4",
             "toId": "!e5f6a7b8",
-            "nextHop": 123456789,
+            "nextHop": 0x15,
             "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Directed hop"},
         }
 
         # Mock interface with node resolution data (but will be ignored due to no_resolve)
         mock_interface = MockInterface(
             {
-                "!075bcd15": {"user": {"longName": "NH Node"}},  # hex for 123456789
+                "!a1b2c315": {"user": {"longName": "NH Node"}},  # ends with 15 to match nextHop 0x15
                 "!a1b2c3d4": {"user": {"longName": "Alice Node"}},
                 "!e5f6a7b8": {"user": {"longName": "Bob Node"}},
             }
@@ -1222,8 +1249,8 @@ class TestGoldenExamples:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
 
-        # With no_resolve=True, should show only hex IDs without name resolution
-        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:3 NH:!075bcd15 from:!a1b2c3d4 to:!e5f6a7b8 Text: Directed hop"
+        # With no_resolve=True, should show only hex byte without name resolution
+        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:3 NH:0x15 from:!a1b2c3d4 to:!e5f6a7b8 Text: Directed hop"
         result = capture._format_packet(packet, mock_interface, True)  # no_resolve=True
         assert result == expected
 
@@ -1288,14 +1315,14 @@ class TestGoldenExamples:
             "hopLimit": 3,
             "fromId": "!a1b2c3d4",
             "toId": "!e5f6a7b8",
-            "next_hop": 123456789,  # Snake case instead of camelCase
+            "next_hop": 0x15,  # Snake case instead of camelCase
             "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Directed hop"},
         }
 
         # Mock interface with node resolution data
         mock_interface = MockInterface(
             {
-                "!075bcd15": {"user": {"longName": "NH Node"}},  # hex for 123456789
+                "!a1b2c315": {"user": {"longName": "NH Node"}},  # ends with 15 to match nextHop 0x15
                 "!a1b2c3d4": {"user": {"longName": "Alice Node"}},
                 "!e5f6a7b8": {"user": {"longName": "Bob Node"}},
             }
@@ -1306,6 +1333,71 @@ class TestGoldenExamples:
         capture = MeshCap(mock_args)
 
         # Expected format includes NH: field between Hop:3 and from:
-        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:3 NH:NH Node (!075bcd15) from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Directed hop"
+        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:3 NH:NH Node (!a1b2c315) from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Directed hop"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
+
+    def test_next_hop_no_matching_node(self):
+        """Test that when no node matches the nextHop last byte, show raw hex."""
+        packet = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 5,
+            "rxRssi": -85,
+            "rxSnr": 12.5,
+            "hopLimit": 3,
+            "fromId": "!a1b2c3d4",
+            "toId": "!e5f6a7b8",
+            "nextHop": 0x42,  # No node ends with 42
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "No matching node"},
+        }
+
+        # Mock interface with nodes that don't match nextHop 0x42
+        mock_interface = MockInterface(
+            {
+                "!a1b2c315": {"user": {"longName": "Node 15"}},  # ends with 15, not 42
+                "!a1b2c3d4": {"user": {"longName": "Alice Node"}},
+                "!e5f6a7b8": {"user": {"longName": "Bob Node"}},
+            }
+        )
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+
+        # Should show raw hex since no node matches
+        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:3 NH:0x42 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: No matching node"
+        result = capture._format_packet(packet, mock_interface, False)
+        assert result == expected
+        
+    def test_next_hop_multiple_matching_nodes(self):
+        """Test that when multiple nodes match the nextHop last byte, show raw hex."""
+        packet = {
+            "rxTime": 1697731200,  # 2023-10-19 16:00:00 UTC
+            "channel": 5,
+            "rxRssi": -85,
+            "rxSnr": 12.5,
+            "hopLimit": 3,
+            "fromId": "!a1b2c3d4",
+            "toId": "!e5f6a7b8",
+            "nextHop": 0x15,  # Multiple nodes end with 15
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Multiple matches"},
+        }
+
+        # Mock interface with multiple nodes ending with 15
+        mock_interface = MockInterface(
+            {
+                "!a1b2c315": {"user": {"longName": "Node A"}},  # ends with 15
+                "!b1b2c315": {"user": {"longName": "Node B"}},  # also ends with 15
+                "!a1b2c3d4": {"user": {"longName": "Alice Node"}},
+                "!e5f6a7b8": {"user": {"longName": "Bob Node"}},
+            }
+        )
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+
+        # Should show raw hex since multiple nodes match
+        expected = "[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hop:3 NH:0x15 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Multiple matches"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == expected

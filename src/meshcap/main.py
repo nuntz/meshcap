@@ -4,7 +4,6 @@ import time
 import pickle
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Union, Optional, Any
 import meshtastic.serial_interface
 from pubsub import pub
 from .filter import parse_filter, evaluate_filter, FilterError
@@ -172,8 +171,9 @@ class MeshCap:
             print(f"Error: Connection to device failed: {e}", file=sys.stderr)
             sys.exit(1)
 
-
-    def format_node_label(self, interface, node, label_mode="named-with-hex", no_resolve=False):
+    def format_node_label(
+        self, interface, node, label_mode="named-with-hex", no_resolve=False
+    ):
         """Format a node identifier according to the specified label mode.
 
         Args:
@@ -209,6 +209,10 @@ class MeshCap:
         else:
             raise ValueError(f"Unknown label_mode: {label_mode}")
 
+    def format_name(self, uid, interface, label_mode="named-with-hex"):
+        """Format a node name using format_node_label for the given user ID."""
+        return self.format_node_label(interface, uid, label_mode=label_mode, no_resolve=False)
+
     def _format_packet(self, packet, interface, no_resolve, verbose=False):
         """Format a packet dictionary into a display string.
 
@@ -236,21 +240,24 @@ class MeshCap:
 
         # Optional next-hop display (only when set and non-zero)
         next_hop_info = ""
-        next_hop_candidate = packet.get("nextHop") or packet.get("next_hop")
-        if next_hop_candidate is not None:
-            try:
-                # Zero means "unset" for next hop
-                if to_node_num(next_hop_candidate) != 0:
-                    nh_label = self.format_node_label(
-                        interface,
-                        next_hop_candidate,
-                        label_mode=self.args.label_mode,
-                        no_resolve=no_resolve,
-                    )
-                    next_hop_info = f" NH:{nh_label}"
-            except Exception:
-                # Be conservative: if parsing fails, omit next-hop
-                pass
+        nh = packet.get("nextHop") or packet.get("next_hop")
+        if isinstance(nh, int) and nh != 0:
+            # Always show raw last-byte:
+            nh_str = f"0x{nh:02x}"
+            # Optional name resolution:
+            label = None
+            if interface and hasattr(interface, "nodes") and not no_resolve:
+                # Find nodes whose user id last byte equals nh
+                matches = []
+                for uid, node in (interface.nodes or {}).items():
+                    try:
+                        if int(uid[-2:], 16) == (nh & 0xFF):
+                            matches.append(uid)
+                    except Exception:
+                        pass
+                if len(matches) == 1:
+                    label = self.format_name(uid=matches[0], interface=interface, label_mode=self.args.label_mode)
+            next_hop_info = f" NH:{label or nh_str}"
 
         # Extract canonical from/to candidates
         from_candidate = packet.get("fromId") or packet.get("from")
@@ -260,13 +267,23 @@ class MeshCap:
         address_parts = []
 
         if from_candidate:
-            from_label = self.format_node_label(interface, from_candidate, label_mode=self.args.label_mode, no_resolve=no_resolve)
+            from_label = self.format_node_label(
+                interface,
+                from_candidate,
+                label_mode=self.args.label_mode,
+                no_resolve=no_resolve,
+            )
             address_parts.append(f"from:{from_label}")
         else:
             address_parts.append("from:unknown")
 
         if to_candidate:
-            to_label = self.format_node_label(interface, to_candidate, label_mode=self.args.label_mode, no_resolve=no_resolve)
+            to_label = self.format_node_label(
+                interface,
+                to_candidate,
+                label_mode=self.args.label_mode,
+                no_resolve=no_resolve,
+            )
             address_parts.append(f"to:{to_label}")
         else:
             address_parts.append("to:unknown")
@@ -300,9 +317,7 @@ class MeshCap:
 def main():
     # Configure logging
     logging.basicConfig(
-        level=logging.WARNING,
-        format='%(levelname)s: %(message)s',
-        stream=sys.stderr
+        level=logging.WARNING, format="%(levelname)s: %(message)s", stream=sys.stderr
     )
 
     parser = argparse.ArgumentParser(description="Meshtastic network dump tool")
