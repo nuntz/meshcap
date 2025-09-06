@@ -231,9 +231,16 @@ class MeshCap:
 
         channel_hash = str(packet.get("channel", 0))
 
-        rssi = packet.get("rxRssi", 0)
-        snr = packet.get("rxSnr", 0)
-        signal = f"{rssi}dBm/{snr}dB"
+        rssi = packet.get("rxRssi")
+        snr = packet.get("rxSnr")
+        parts = []
+        if rssi is not None: 
+            parts.append(f"{rssi}dBm")
+        elif packet.get("rssi") is not None:
+            parts.append(f"{packet.get('rssi')}dBm")
+        if snr is not None: 
+            parts.append(f"{snr}dB")
+        signal = "/".join(parts) if parts else "-"
 
         hop_limit = packet.get("hopLimit", 0)
         hop_info = f" Hop:{hop_limit}"

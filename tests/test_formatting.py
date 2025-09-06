@@ -133,7 +133,7 @@ class TestFormatPacket:
         mock_args = Mock()
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
-        expected = "[1970-01-01 00:00:00] Ch:0 0dBm/0dB Hop:0 from:unknown to:unknown Encrypted: length=0"
+        expected = "[1970-01-01 00:00:00] Ch:0 - Hop:0 from:unknown to:unknown Encrypted: length=0"
         assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_empty_text_message(self):
@@ -882,6 +882,115 @@ class TestFormatNodeLabel:
 
         result = capture.format_node_label(mock_interface, "!a1b2c3d4")
         assert result == "Alice Node (!a1b2c3d4)"
+
+
+class TestRSSIHandling:
+    """Test cases for robust RSSI handling."""
+
+    def test_packet_with_both_rssi_and_snr(self):
+        """Test formatting a packet with both rxRssi and rxSnr present."""
+        packet = {
+            "rxTime": 1697731200,
+            "channel": 1,
+            "rxRssi": -85,
+            "rxSnr": 12.5,
+            "fromId": "!a1b2c3d4",
+            "toId": "!e5f6a7b8",
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Both values"},
+        }
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.5dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: Both values"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
+
+    def test_packet_with_only_rssi(self):
+        """Test formatting a packet with only rxRssi present."""
+        packet = {
+            "rxTime": 1697731200,
+            "channel": 1,
+            "fromId": "!a1b2c3d4",
+            "toId": "!e5f6a7b8",
+            "rxRssi": -85,
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Only RSSI"},
+        }
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: Only RSSI"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
+
+    def test_packet_with_only_snr(self):
+        """Test formatting a packet with only rxSnr present."""
+        packet = {
+            "rxTime": 1697731200,
+            "channel": 1,
+            "fromId": "!a1b2c3d4",
+            "toId": "!e5f6a7b8",
+            "rxSnr": 12.5,
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Only SNR"},
+        }
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        expected = "[2023-10-19 16:00:00] Ch:1 12.5dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: Only SNR"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
+
+    def test_packet_with_rssi_fallback(self):
+        """Test formatting a packet that uses rssi fallback when rxRssi is missing."""
+        packet = {
+            "rxTime": 1697731200,
+            "channel": 1,
+            "fromId": "!a1b2c3d4",
+            "toId": "!e5f6a7b8",
+            "rssi": -90,  # Fallback field
+            "rxSnr": 8.0,
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "RSSI fallback"},
+        }
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        expected = "[2023-10-19 16:00:00] Ch:1 -90dBm/8.0dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: RSSI fallback"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
+
+    def test_packet_with_no_signal_values(self):
+        """Test formatting a packet with no signal strength values."""
+        packet = {
+            "rxTime": 1697731200,
+            "channel": 1,
+            "fromId": "!a1b2c3d4",
+            "toId": "!e5f6a7b8",
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "No signals"},
+        }
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        expected = "[2023-10-19 16:00:00] Ch:1 - Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: No signals"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
+
+    def test_packet_rxrssi_preferred_over_rssi_fallback(self):
+        """Test that rxRssi is preferred over rssi fallback when both are present."""
+        packet = {
+            "rxTime": 1697731200,
+            "channel": 1,
+            "fromId": "!a1b2c3d4",
+            "toId": "!e5f6a7b8",
+            "rxRssi": -85,  # This should be used
+            "rssi": -90,     # This should be ignored
+            "rxSnr": 12.5,
+            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Preference test"},
+        }
+
+        mock_args = Mock()
+        mock_args.label_mode = "named-with-hex"
+        capture = MeshCap(mock_args)
+        expected = "[2023-10-19 16:00:00] Ch:1 -85dBm/12.5dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: Preference test"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
 
 
 class TestGoldenExamples:
