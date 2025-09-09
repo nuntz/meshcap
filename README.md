@@ -57,12 +57,12 @@ uv run meshcap -c 10 priority HIGH or want_ack
 
 ## Output Format
 
-meshcap displays captured packets in a structured format showing timestamp, channel, signal strength, hop information, addressing, packet type, and payload:
+meshcap displays captured packets in a structured format showing timestamp, channel, signal strength, hop information, optional flags, addressing, packet type, and payload:
 
 ```
-[timestamp] Ch:hash signal Hop:X [NH:<label|0xHH>] address_fields packet_type: payload
+[timestamp] Ch:hash signal Hop:X [A|M|AM] [NH:<label|0xHH>] address_fields packet_type: payload
 # or, when hop_start is present and valid
-[timestamp] Ch:hash signal Hops:U/S [NH:<label|0xHH>] address_fields packet_type: payload
+[timestamp] Ch:hash signal Hops:U/S [A|M|AM] [NH:<label|0xHH>] address_fields packet_type: payload
 ```
 
 ### Node Identity & Labels
@@ -94,12 +94,20 @@ When name resolution is disabled or ambiguous, NH falls back to the last byte in
 [2023-10-19 16:05:00] Ch:5 -85dBm/12.5dB Hop:3 NH:0x15 from:!a1b2c3d4 to:!e5f6a7b8 Text: Directed hop
 ```
 
+**Flag examples (ack/MQTT):**
+```
+[2023-10-19 16:10:00] Ch:2 -92dBm/9.0dB Hop:2 [A] from:Alice (!deadbeef) to:Bob (!cafebabe) Text: Ack requested
+[2023-10-19 16:11:00] Ch:2 -92dBm/9.0dB Hop:2 [M] from:Relay (!00112233) to:All (!ffffffff) Text: Via MQTT
+[2023-10-19 16:12:00] Ch:2 -92dBm/9.0dB Hop:2 [AM] from:Alice (!deadbeef) to:Bob (!cafebabe) Text: Ack via MQTT
+```
+
 ### Field Types
 
 - **Hop:X**: Remaining hop limit when `hop_start` is missing/zero or when `hop_limit` > `hop_start`.
 - **Hops:U/S**: Hop usage format when both `hop_start` and `hop_limit` are present and `hop_limit <= hop_start`. Here `S` is the starting TTL (`hop_start`), and `U = S - hop_limit` is the number of hops already used.
 - **from/to**: End-to-end message routing (ultimate origin/destination)
 - **NH:<label|0xHH>**: Next hop shown only when `nextHop`/`next_hop` is non-zero. If name resolution is enabled and there is a unique node whose user ID last byte matches, the label is shown; otherwise raw hex `0xHH` is shown.
+ - **[A|M|AM]**: Optional flags shown when present — `A` indicates the packet requested an acknowledgement (`wantAck`), `M` indicates the packet arrived via MQTT (`viaMqtt`). When both apply, they are shown together as `AM`. If no flags are active, this section is omitted.
 
 ### Address Display Formats
 
