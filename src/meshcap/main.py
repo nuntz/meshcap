@@ -28,6 +28,40 @@ class MeshCap:
         # Cache NodeBook per MeshCap instance (initialized when connected)
         self.node_book: NodeBook | None = None
 
+    def _format_hop_info(self, packet: dict) -> str:
+        """Format hop information from a packet.
+
+        Extracts hop_start and hop_limit (snake_case, with camelCase fallback for hopLimit)
+        and returns a concise hop usage string.
+
+        Logic:
+        - If hop_start != 0 and hop_limit <= hop_start, show "Hops:<used>/<start>"
+        - Otherwise, show "Hop:<hop_limit>"
+
+        Args:
+            packet (dict): The packet dictionary possibly containing hop values.
+
+        Returns:
+            str: Formatted hop information string.
+        """
+        hop_start = packet.get("hop_start", packet.get("hopStart", 0)) or 0
+        hop_limit = packet.get("hop_limit", packet.get("hopLimit", 0)) or 0
+
+        try:
+            hs = int(hop_start)
+        except Exception:
+            hs = 0
+        try:
+            hl = int(hop_limit)
+        except Exception:
+            hl = 0
+
+        if hs != 0 and hl <= hs:
+            used = hs - hl
+            return f"Hops:{used}/{hs}"
+        else:
+            return f"Hop:{hl}"
+
     def _on_packet_received(self, packet, interface, no_resolve=False, verbose=False):
         """Callback function for received packets.
 
@@ -251,8 +285,7 @@ class MeshCap:
             parts.append(f"{snr}dB")
         signal = "/".join(parts) if parts else "-"
 
-        hop_limit = packet.get("hopLimit", 0)
-        hop_info = f" Hop:{hop_limit}"
+        hop_info = f" {self._format_hop_info(packet)}"
 
         # Optional next-hop display (only when set and non-zero)
         next_hop_info = ""
