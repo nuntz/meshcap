@@ -25,6 +25,8 @@ class MeshCap:
         self.write_file_handle = None
         self.filter_rpn = None
         self.should_exit = False
+        # Cache NodeBook per MeshCap instance (initialized when connected)
+        self.node_book: NodeBook | None = None
 
     def _on_packet_received(self, packet, interface, no_resolve=False, verbose=False):
         """Callback function for received packets.
@@ -120,6 +122,8 @@ class MeshCap:
 
         # Connect to device for live capture
         interface = self._connect_to_device(self.args.port)
+        # Initialize NodeBook once per MeshCap instance after connecting
+        self.node_book = NodeBook(interface)
 
         def packet_handler(packet, interface):
             self._on_packet_received(
@@ -193,9 +197,12 @@ class MeshCap:
         if no_resolve:
             return user_id
 
-        # Use NodeBook to get node information
-        node_book = NodeBook(interface)
-        node_label = node_book.get(node_num)
+        # Use cached NodeBook if available; fall back to a temporary one
+        node_label = (
+            self.node_book.get(node_num)
+            if self.node_book is not None
+            else NodeBook(interface).get(node_num)
+        )
 
         # Handle different label modes
         if label_mode == "hex-only":
