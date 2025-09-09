@@ -216,11 +216,7 @@ class MeshCap:
         else:
             raise ValueError(f"Unknown label_mode: {label_mode}")
 
-    def format_name(self, uid, interface, label_mode="named-with-hex"):
-        """Format a node name using format_node_label for the given user ID."""
-        return self.format_node_label(
-            interface, uid, label_mode=label_mode, no_resolve=False
-        )
+    
 
     def _format_packet(self, packet, interface, no_resolve, verbose=False):
         """Format a packet dictionary into a display string.
@@ -276,10 +272,11 @@ class MeshCap:
                     except Exception:
                         pass
                 if len(matches) == 1:
-                    label = self.format_name(
-                        uid=matches[0],
-                        interface=interface,
+                    label = self.format_node_label(
+                        interface,
+                        matches[0],
                         label_mode=self.args.label_mode,
+                        no_resolve=False,
                     )
             next_hop_info = f" NH:{label or nh_str}"
 
