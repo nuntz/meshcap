@@ -313,7 +313,7 @@ class FilterEvaluator:
         # Get node IDs from packet, checking both new and legacy field names
         from_id = packet.get("fromId") or packet.get("from") or ""
         to_id = packet.get("toId") or packet.get("to") or ""
-        
+
         # Convert to canonical representations - handle ValueError for invalid formats
         try:
             from_n = to_node_num(from_id)
@@ -355,7 +355,9 @@ class FilterEvaluator:
 
             # Check both possible field names for long and short names
             long_name = user_info.get("longName", "") or user_info.get("long_name", "")
-            short_name = user_info.get("shortName", "") or user_info.get("short_name", "")
+            short_name = user_info.get("shortName", "") or user_info.get(
+                "short_name", ""
+            )
 
             return long_name == value or short_name == value
 

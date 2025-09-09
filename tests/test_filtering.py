@@ -245,7 +245,7 @@ class TestFilterEvaluator:
         """Helper to create test packets."""
         default = {
             "fromId": "!a2ebdc20",  # Valid hex node ID
-            "toId": "!deadbeef",     # Valid hex node ID
+            "toId": "!deadbeef",  # Valid hex node ID
             "hopLimit": 3,
             "priority": "UNSET",
             "wantAck": False,
@@ -263,13 +263,15 @@ class TestFilterEvaluator:
     def test_node_filter_both(self):
         """Test node filter matching either src or dst."""
         evaluator = FilterEvaluator()
-        packet = self.create_packet()  # Uses default fromId="!a2ebdc20", toId="!deadbeef"
+        packet = (
+            self.create_packet()
+        )  # Uses default fromId="!a2ebdc20", toId="!deadbeef"
 
         # Should match source
         rpn: List[Union[Tuple[str, str, str], str]] = [("node", "both", "a2ebdc20")]
         assert evaluator.evaluate_rpn(rpn, packet) is True
 
-        # Should match destination  
+        # Should match destination
         rpn: List[Union[Tuple[str, str, str], str]] = [("node", "both", "deadbeef")]
         assert evaluator.evaluate_rpn(rpn, packet) is True
 
@@ -280,7 +282,9 @@ class TestFilterEvaluator:
     def test_src_node_filter(self):
         """Test src node filter."""
         evaluator = FilterEvaluator()
-        packet = self.create_packet()  # Uses default fromId="!a2ebdc20", toId="!deadbeef"
+        packet = (
+            self.create_packet()
+        )  # Uses default fromId="!a2ebdc20", toId="!deadbeef"
 
         rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "a2ebdc20")]
         assert evaluator.evaluate_rpn(rpn, packet) is True
@@ -291,7 +295,9 @@ class TestFilterEvaluator:
     def test_dst_node_filter(self):
         """Test dst node filter."""
         evaluator = FilterEvaluator()
-        packet = self.create_packet()  # Uses default fromId="!a2ebdc20", toId="!deadbeef"
+        packet = (
+            self.create_packet()
+        )  # Uses default fromId="!a2ebdc20", toId="!deadbeef"
 
         rpn: List[Union[Tuple[str, str, str], str]] = [("node", "dst", "deadbeef")]
         assert evaluator.evaluate_rpn(rpn, packet) is True
@@ -486,11 +492,17 @@ class TestFilterEvaluator:
         packet = self.create_packet()  # Uses default fromId="!a2ebdc20"
 
         # True becomes False
-        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "a2ebdc20"), "not"]
+        rpn: List[Union[Tuple[str, str, str], str]] = [
+            ("node", "src", "a2ebdc20"),
+            "not",
+        ]
         assert evaluator.evaluate_rpn(rpn, packet) is False
 
         # False becomes True
-        rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "deadbeef"), "not"]
+        rpn: List[Union[Tuple[str, str, str], str]] = [
+            ("node", "src", "deadbeef"),
+            "not",
+        ]
         assert evaluator.evaluate_rpn(rpn, packet) is True
 
     def test_complex_expression(self):
@@ -659,8 +671,12 @@ class TestFilterEvaluator:
                 self.nodes = {
                     "!node1": {"user": {"longName": "User1", "shortName": "U1"}},
                     "!node2": {"user": {"long_name": "User2", "short_name": "U2"}},
-                    "!node3": {"user": {"longName": "User3", "short_name": "U3"}},  # mixed
-                    "!node4": {"user": {"long_name": "User4", "shortName": "U4"}},  # mixed
+                    "!node3": {
+                        "user": {"longName": "User3", "short_name": "U3"}
+                    },  # mixed
+                    "!node4": {
+                        "user": {"long_name": "User4", "shortName": "U4"}
+                    },  # mixed
                 }
 
         mock_interface = MockInterfaceMixed()
@@ -710,16 +726,16 @@ class TestNodeNumConversion:
 
     def test_to_node_num_hex_format(self):
         """Test to_node_num with hex format (no !)."""
-        assert to_node_num("a2ebdc20") == 0xa2ebdc20
+        assert to_node_num("a2ebdc20") == 0xA2EBDC20
         assert to_node_num("A2EBDC20") == 0xA2EBDC20
-        assert to_node_num("ff") == 0xff
+        assert to_node_num("ff") == 0xFF
         assert to_node_num("0") == 0
 
     def test_to_node_num_bang_hex_format(self):
         """Test to_node_num with !hex format."""
-        assert to_node_num("!a2ebdc20") == 0xa2ebdc20
+        assert to_node_num("!a2ebdc20") == 0xA2EBDC20
         assert to_node_num("!A2EBDC20") == 0xA2EBDC20
-        assert to_node_num("!ff") == 0xff
+        assert to_node_num("!ff") == 0xFF
         assert to_node_num("!0") == 0
 
     def test_to_node_num_empty_string(self):
@@ -738,24 +754,26 @@ class TestNodeNumConversion:
     def test_canonical_node_filtering_decimal_hex_bang_hex(self):
         """Test that hex and !hex formats all match the same packet."""
         evaluator = FilterEvaluator()
-        
+
         # Create a packet with node ID 2733366304 (0xa2ebdc20)
         packet = {"fromId": "!a2ebdc20", "toId": "!deadbeef"}
-        
+
         # Hex and !hex formats should match
         rpn_hex: List[Union[Tuple[str, str, str], str]] = [("node", "src", "a2ebdc20")]
-        rpn_bang_hex: List[Union[Tuple[str, str, str], str]] = [("node", "src", "!a2ebdc20")]
-        
+        rpn_bang_hex: List[Union[Tuple[str, str, str], str]] = [
+            ("node", "src", "!a2ebdc20")
+        ]
+
         assert evaluator.evaluate_rpn(rpn_hex, packet) is True
         assert evaluator.evaluate_rpn(rpn_bang_hex, packet) is True
 
     def test_canonical_node_filtering_legacy_field_names(self):
         """Test that filtering works with legacy field names 'from' and 'to'."""
         evaluator = FilterEvaluator()
-        
+
         # Create a packet with legacy field names
         packet = {"from": "!a2ebdc20", "to": "!deadbeef"}
-        
+
         # Should still match using canonical conversion
         rpn: List[Union[Tuple[str, str, str], str]] = [("node", "src", "a2ebdc20")]
         assert evaluator.evaluate_rpn(rpn, packet) is True
@@ -763,14 +781,14 @@ class TestNodeNumConversion:
     def test_canonical_node_filtering_mixed_formats(self):
         """Test filtering with mixed node ID formats in packets and filters."""
         evaluator = FilterEvaluator()
-        
-        # Packet with hex fromId and !hex toId  
+
+        # Packet with hex fromId and !hex toId
         packet = {"fromId": "a2ebdc20", "toId": "!deadbeef"}
-        
+
         # Filter with !hex format should match hex packet field
         rpn_src: List[Union[Tuple[str, str, str], str]] = [("node", "src", "!a2ebdc20")]
         assert evaluator.evaluate_rpn(rpn_src, packet) is True
-        
+
         # Filter with hex format should match !hex packet field
         rpn_dst: List[Union[Tuple[str, str, str], str]] = [("node", "dst", "deadbeef")]
         assert evaluator.evaluate_rpn(rpn_dst, packet) is True
