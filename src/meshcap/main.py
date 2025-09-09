@@ -63,6 +63,43 @@ class MeshCap:
         else:
             return f"Hop:{hl}"
 
+    def _format_flags(self, packet: dict) -> str:
+        """Format active flag indicators from a packet.
+
+        Checks for the following boolean fields on the packet dict:
+        - wantAck -> 'A'
+        - viaMqtt (protobuf field 'via_mqtt') -> 'M'
+
+        Returns an empty string when no flags are active; otherwise returns
+        a string with a leading space, followed by the active flags enclosed
+        in brackets. The flag order is always 'A' then 'M'.
+
+        Args:
+            packet (dict): The packet dictionary to inspect.
+
+        Returns:
+            str: "", " [A]", " [M]", or " [AM]" depending on active flags.
+        """
+        flags: list[str] = []
+
+        # 'A' flag for acknowledgements requested
+        try:
+            if bool(packet.get("wantAck", False)):
+                flags.append("A")
+        except Exception:
+            pass
+
+        # 'M' flag for packets that came via MQTT (protobuf: via_mqtt)
+        try:
+            if bool(packet.get("viaMqtt", False)):
+                flags.append("M")
+        except Exception:
+            pass
+
+        if not flags:
+            return ""
+        return f" [{''.join(flags)}]"
+
     def _on_packet_received(self, packet, interface, no_resolve=False, verbose=False):
         """Callback function for received packets.
 
