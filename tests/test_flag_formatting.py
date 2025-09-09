@@ -36,4 +36,3 @@ class TestFlagFormatting:
     def test_missing_via_mqtt_key(self):
         packet = {"wantAck": True}
         assert self.capture._format_flags(packet) == " [A]"
-

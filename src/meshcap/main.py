@@ -322,6 +322,8 @@ class MeshCap:
         signal = "/".join(parts) if parts else "-"
 
         hop_info = f" {self._format_hop_info(packet)}"
+        # Flags string (e.g., " [A]", " [M]", " [AM]" or "")
+        flags_string = self._format_flags(packet)
 
         # Optional next-hop display (only when set and non-zero)
         next_hop_info = ""
@@ -401,7 +403,7 @@ class MeshCap:
             packet_type = "Encrypted"
             payload = f"length={len(packet.get('encrypted', ''))}"
 
-        return f"[{timestamp}] Ch:{channel_hash} {signal}{hop_info}{next_hop_info} {address_str} {packet_type}: {payload}"
+        return f"[{timestamp}] Ch:{channel_hash} {signal}{hop_info}{flags_string}{next_hop_info} {address_str} {packet_type}: {payload}"
 
 
 def main():
