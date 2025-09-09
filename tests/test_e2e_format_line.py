@@ -31,6 +31,7 @@ class TestE2EFormatLine:
             "rxRssi": -85,
             "rxSnr": 12.5,
             "hopLimit": 3,
+            "hop_start": 7,
             "fromId": "!a1b2c3d4",
             "toId": "!e5f6a7b8",
             "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Test message"},
@@ -54,14 +55,14 @@ class TestE2EFormatLine:
 
         # Assert the full line contains all expected components
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Test message"
+        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hops:4/7 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Test message"
         assert result == expected
 
         # Additional assertions to verify specific field formatting
         assert f"[{local_ts_str(1697731200)}]" in result  # Timestamp
         assert "Ch:5" in result  # Channel
         assert "-85dBm/12.5dB" in result  # Signal strength
-        assert "Hop:3" in result  # Hop limit
+        assert "Hops:4/7" in result  # Hop usage
         assert "from:Alice Node (!a1b2c3d4)" in result  # Resolved from address
         assert "to:Bob Node (!e5f6a7b8)" in result  # Resolved to address
         assert "Text: Test message" in result  # Payload

@@ -56,7 +56,8 @@ class MeshCap:
         except Exception:
             hl = 0
 
-        if hs != 0 and hl <= hs:
+        # Show usage format only when both values are present and valid
+        if hs != 0 and hl != 0 and hl <= hs:
             used = hs - hl
             return f"Hops:{used}/{hs}"
         else:
@@ -249,8 +250,6 @@ class MeshCap:
             return f"{best} ({user_id})" if best != user_id else user_id
         else:
             raise ValueError(f"Unknown label_mode: {label_mode}")
-
-    
 
     def _format_packet(self, packet, interface, no_resolve, verbose=False):
         """Format a packet dictionary into a display string.

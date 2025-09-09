@@ -57,10 +57,12 @@ uv run meshcap -c 10 priority HIGH or want_ack
 
 ## Output Format
 
-meshcap displays captured packets in a structured format showing timestamp, channel, signal strength, hop limit, addressing information, packet type, and payload:
+meshcap displays captured packets in a structured format showing timestamp, channel, signal strength, hop information, addressing, packet type, and payload:
 
 ```
-[timestamp] Ch:hash signal Hop:X address_fields packet_type: payload
+[timestamp] Ch:hash signal Hop:X [NH:<label|0xHH>] address_fields packet_type: payload
+# or, when hop_start is present and valid
+[timestamp] Ch:hash signal Hops:U/S [NH:<label|0xHH>] address_fields packet_type: payload
 ```
 
 ### Node Identity & Labels
@@ -78,10 +80,26 @@ meshcap uses a flexible node identity model:
 [2023-10-19 16:02:15] Ch:3 -85dBm/10.0dB Hop:0 from:TestNode (!deadbeef) to:Relay (!cafebabe) Text: New identity format
 ```
 
+**Hop usage with hop_start provided:**
+```
+[2023-10-19 16:00:00] Ch:5 -85dBm/12.5dB Hops:4/7 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Test message
+```
+
+**Directed next hop (NH) shown when present:**
+```
+[2023-10-19 16:05:00] Ch:5 -85dBm/12.5dB Hop:3 NH:NH Node (!a1b2c315) from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Directed hop
+```
+When name resolution is disabled or ambiguous, NH falls back to the last byte in hex:
+```
+[2023-10-19 16:05:00] Ch:5 -85dBm/12.5dB Hop:3 NH:0x15 from:!a1b2c3d4 to:!e5f6a7b8 Text: Directed hop
+```
+
 ### Field Types
 
-- **Hop:X**: Remaining hop limit for the packet (how many more hops it can make)
+- **Hop:X**: Remaining hop limit when `hop_start` is missing/zero or when `hop_limit` > `hop_start`.
+- **Hops:U/S**: Hop usage format when both `hop_start` and `hop_limit` are present and `hop_limit <= hop_start`. Here `S` is the starting TTL (`hop_start`), and `U = S - hop_limit` is the number of hops already used.
 - **from/to**: End-to-end message routing (ultimate origin/destination)
+- **NH:<label|0xHH>**: Next hop shown only when `nextHop`/`next_hop` is non-zero. If name resolution is enabled and there is a unique node whose user ID last byte matches, the label is shown; otherwise raw hex `0xHH` is shown.
 
 ### Address Display Formats
 
@@ -89,7 +107,7 @@ meshcap uses a flexible node identity model:
 - **Node IDs**: Hex format (e.g., `!075bcd15`) - fallback when node numbers unavailable
 - **Resolved names**: `Name (identifier)` format - shows user name with node number/ID
 
-The tool only shows address fields that are present and differ from each other, keeping output clean while providing comprehensive routing information when available. The hop limit is always displayed when available, defaulting to 0 when not present in the packet.
+The tool only shows address fields that are present and differ from each other, keeping output clean while providing comprehensive routing information when available. Hop information is always displayed when available: it defaults to `Hop:0` when no values are provided, or switches to `Hops:U/S` when `hop_start` is provided along with a valid `hop_limit`.
 
 ## Command Line Options
 
