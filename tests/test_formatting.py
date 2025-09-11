@@ -13,16 +13,39 @@ def local_ts_str(epoch: int) -> str:
 
 
 def with_suffix_if_portnum(packet: dict, s: str) -> str:
-    """Append the payload placeholder when a portnum is present.
+    """Append payload formatter suffix based on portnum.
 
-    For packets that include a decoded.portnum, the formatter now appends
-    " [unformatted]" at the end of the line. This helper mirrors that
-    behavior for expected strings across tests.
+    - TEXT_MESSAGE_APP: append " text:<text>"
+    - POSITION_APP: append " pos:<lat>,<lon> <alt>m" (lat/lon to 4 decimals; alt defaults to 0)
+    - Other/unknown portnums: append " [unformatted]"
+    - No/empty portnum: no suffix
     """
     decoded = packet.get("decoded")
-    if isinstance(decoded, dict) and "portnum" in decoded:
-        return s + " [unformatted]"
-    return s
+    if not isinstance(decoded, dict):
+        return s
+    portnum = decoded.get("portnum")
+    if not portnum:
+        return s
+    if portnum == "TEXT_MESSAGE_APP":
+        text = decoded.get("text", "")
+        return s + f" text:{text}"
+    if portnum == "POSITION_APP":
+        pos = decoded.get("position") or {}
+        try:
+            lat = float(pos.get("latitude", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            lat = 0.0
+        try:
+            lon = float(pos.get("longitude", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            lon = 0.0
+        alt = pos.get("altitude")
+        try:
+            alt_i = int(0 if alt is None else alt)
+        except (TypeError, ValueError):
+            alt_i = 0
+        return s + f" pos:{lat:.4f},{lon:.4f} {alt_i}m"
+    return s + " [unformatted]"
 
 
 class MockInterface:

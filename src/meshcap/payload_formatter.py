@@ -29,14 +29,43 @@ class PayloadFormatter:
         """Return a formatted payload string for the given packet.
 
         - If `packet` lacks a `decoded` key or `decoded.portnum`, return "".
-        - Otherwise, return a placeholder string for now.
+        - For `TEXT_MESSAGE_APP`, return `text:<text>` using `decoded["text"]`.
+        - For `POSITION_APP`, return `pos:<lat>,<lon> <alt>m` using values from
+          `decoded["position"]` with latitude/longitude to 4 decimal places and
+          altitude defaulting to 0 when missing.
+        - Otherwise, return a placeholder string.
         """
         decoded = packet.get("decoded")
         if not isinstance(decoded, dict):
             return ""
 
-        if "portnum" not in decoded:
+        portnum = decoded.get("portnum")
+        if not portnum:
             return ""
 
-        return "[unformatted]"
+        if portnum == "TEXT_MESSAGE_APP":
+            text = decoded.get("text", "")
+            return f"text:{text}"
 
+        if portnum == "POSITION_APP":
+            position = decoded.get("position") or {}
+            lat = position.get("latitude", 0.0) or 0.0
+            lon = position.get("longitude", 0.0) or 0.0
+            alt = position.get("altitude")
+            if alt is None:
+                alt = 0
+            try:
+                lat_f = float(lat)
+            except (TypeError, ValueError):
+                lat_f = 0.0
+            try:
+                lon_f = float(lon)
+            except (TypeError, ValueError):
+                lon_f = 0.0
+            try:
+                alt_i = int(alt)
+            except (TypeError, ValueError):
+                alt_i = 0
+            return f"pos:{lat_f:.4f},{lon_f:.4f} {alt_i}m"
+
+        return "[unformatted]"

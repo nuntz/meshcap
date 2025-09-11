@@ -55,7 +55,10 @@ class TestE2EFormatLine:
 
         # Assert the full line contains all expected components
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hops:4/7 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Test message"
+        expected = (
+            f"[{ts}] Ch:5 -85dBm/12.5dB Hops:4/7 "
+            f"from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Test message text:Test message"
+        )
         assert result == expected
 
         # Additional assertions to verify specific field formatting
