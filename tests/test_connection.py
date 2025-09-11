@@ -55,7 +55,10 @@ def test_connect_to_interface_serial_failure_error_message(capsys):
             capture._connect_to_interface()
 
     captured = capsys.readouterr()
-    assert f"Error: Connection to device failed: {error_message}" in captured.err
+    assert (
+        f"Error: Connection to device at /dev/ttyUSB0 failed: {error_message}"
+        in captured.err
+    )
 
 
 def test_connect_to_interface_tcp_success(capsys):
@@ -66,9 +69,7 @@ def test_connect_to_interface_tcp_success(capsys):
     mock_interface = Mock()
     capture = MeshCap(mock_args)
 
-    with patch(
-        "meshtastic.tcp_interface.TCPInterface", return_value=mock_interface
-    ):
+    with patch("meshtastic.tcp_interface.TCPInterface", return_value=mock_interface):
         result = capture._connect_to_interface()
 
     assert result is mock_interface
@@ -110,4 +111,7 @@ def test_connect_to_interface_tcp_connection_refused_error_message(capsys):
             capture._connect_to_interface()
 
     captured = capsys.readouterr()
-    assert "Error: TCP connection refused to 192.168.1.100:4403: Connection refused" in captured.err
+    assert (
+        "Error: TCP connection refused to 192.168.1.100:4403: Connection refused"
+        in captured.err
+    )

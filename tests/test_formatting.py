@@ -13,39 +13,11 @@ def local_ts_str(epoch: int) -> str:
 
 
 def with_suffix_if_portnum(packet: dict, s: str) -> str:
-    """Append payload formatter suffix based on portnum.
+    """Legacy helper - now just returns the original string since PayloadFormatter handles suffixes.
 
-    - TEXT_MESSAGE_APP: append " text:<text>"
-    - POSITION_APP: append " pos:<lat>,<lon> <alt>m" (lat/lon to 4 decimals; alt defaults to 0)
-    - Other/unknown portnums: append " [unformatted]"
-    - No/empty portnum: no suffix
+    This function is kept for backward compatibility but no longer appends anything.
     """
-    decoded = packet.get("decoded")
-    if not isinstance(decoded, dict):
-        return s
-    portnum = decoded.get("portnum")
-    if not portnum:
-        return s
-    if portnum == "TEXT_MESSAGE_APP":
-        text = decoded.get("text", "")
-        return s + f" text:{text}"
-    if portnum == "POSITION_APP":
-        pos = decoded.get("position") or {}
-        try:
-            lat = float(pos.get("latitude", 0.0) or 0.0)
-        except (TypeError, ValueError):
-            lat = 0.0
-        try:
-            lon = float(pos.get("longitude", 0.0) or 0.0)
-        except (TypeError, ValueError):
-            lon = 0.0
-        alt = pos.get("altitude")
-        try:
-            alt_i = int(0 if alt is None else alt)
-        except (TypeError, ValueError):
-            alt_i = 0
-        return s + f" pos:{lat:.4f},{lon:.4f} {alt_i}m"
-    return s + " [unformatted]"
+    return s
 
 
 class MockInterface:
@@ -74,8 +46,8 @@ class TestFormatPacket:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: Hello World!"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 text:Hello World!"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_position_packet(self):
         """Test formatting a position packet."""
@@ -96,8 +68,8 @@ class TestFormatPacket:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:2 -92dBm/8.0dB Hop:0 from:!12345678 to:!87654321 Position: lat=37.7749, lon=-122.4194"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:2 -92dBm/8.0dB Hop:0 from:!12345678 to:!87654321 pos:37.7749,-122.4194 0m"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_encrypted_packet(self):
         """Test formatting an encrypted packet."""
@@ -115,8 +87,8 @@ class TestFormatPacket:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 -78dBm/15.2dB Hop:0 from:!aaaabbbb to:!ccccdddd Encrypted: length=24"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:1 -78dBm/15.2dB Hop:0 from:!aaaabbbb to:!ccccdddd encrypted:len=24"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_encrypted_packet_no_decoded(self):
         """Test formatting a packet with no decoded field."""
@@ -134,8 +106,8 @@ class TestFormatPacket:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:3 -95dBm/5.5dB Hop:0 from:!11111111 to:!22222222 Encrypted: length=9"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:3 -95dBm/5.5dB Hop:0 from:!11111111 to:!22222222 encrypted:len=9"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_other_portnum_packet(self):
         """Test formatting a packet with an unknown portnum."""
@@ -153,8 +125,10 @@ class TestFormatPacket:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:4 -88dBm/10.0dB Hop:0 from:!abcd1234 to:!5678efab UNKNOWN_APP: [UNKNOWN_APP]"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = (
+            f"[{ts}] Ch:4 -88dBm/10.0dB Hop:0 from:!abcd1234 to:!5678efab [unformatted]"
+        )
+        assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_other_portnum_packet_verbose(self):
         """Test formatting a packet with an unknown portnum in verbose mode."""
@@ -172,10 +146,10 @@ class TestFormatPacket:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:4 -88dBm/10.0dB Hop:0 from:!abcd1234 to:!5678efab UNKNOWN_APP: {{'portnum': 'UNKNOWN_APP', 'data': {{'some': 'data'}}}}"
+        expected = f"[{ts}] Ch:4 -88dBm/10.0dB Hop:0 from:!abcd1234 to:!5678efab [unformatted] {{'portnum': 'UNKNOWN_APP', 'data': {{'some': 'data'}}}}"
         assert (
             capture._format_packet(packet, MockInterface(), False, verbose=True)
-            == with_suffix_if_portnum(packet, expected)
+            == expected
         )
 
     def test_missing_fields_defaults(self):
@@ -186,8 +160,8 @@ class TestFormatPacket:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(0)
-        expected = f"[{ts}] Ch:0 - Hop:0 from:unknown to:unknown Encrypted: length=0"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:0 - Hop:0 from:unknown to:unknown encrypted:len=0"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_empty_text_message(self):
         """Test formatting a text message packet with empty text."""
@@ -205,8 +179,8 @@ class TestFormatPacket:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 -80dBm/12.0dB Hop:0 from:!ae511234 to:!de515678 Text: "
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:1 -80dBm/12.0dB Hop:0 from:!ae511234 to:!de515678 text:"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_position_packet_missing_coordinates(self):
         """Test formatting a position packet with missing coordinates."""
@@ -224,8 +198,8 @@ class TestFormatPacket:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:2 -90dBm/7.5dB Hop:0 from:!a0512345 to:!1a4ee678 Position: lat=0, lon=0"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:2 -90dBm/7.5dB Hop:0 from:!a0512345 to:!1a4ee678 pos:0.0000,0.0000 0m"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
 
     def test_decoded_with_empty_portnum(self):
         """Test formatting a packet with decoded field but empty portnum."""
@@ -244,8 +218,8 @@ class TestFormatPacket:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:3 -85dBm/9.0dB Hop:0 from:!e0a71234 to:!e0a75678 Encrypted: length=4"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:3 -85dBm/9.0dB Hop:0 from:!e0a71234 to:!e0a75678 encrypted:len=4"
+        assert capture._format_packet(packet, MockInterface(), False) == expected
 
 
 class TestNodeResolution:
@@ -274,8 +248,10 @@ class TestNodeResolution:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Hello!"
-        assert capture._format_packet(packet, mock_interface, False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) text:Hello!"
+        assert capture._format_packet(
+            packet, mock_interface, False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_node_resolution_unknown_to_id_fallback(self):
         """Test that an unknown toId correctly falls back to its raw ID."""
@@ -297,8 +273,10 @@ class TestNodeResolution:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:Alice Node (!a1b2c3d4) to:!0eabc123 Text: Hello!"
-        assert capture._format_packet(packet, mock_interface, False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:Alice Node (!a1b2c3d4) to:!0eabc123 text:Hello!"
+        assert capture._format_packet(
+            packet, mock_interface, False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_node_resolution_disabled(self):
         """Test that when no_resolve is True, no name resolution occurs."""
@@ -324,9 +302,11 @@ class TestNodeResolution:
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
         expected = (
-            f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: Hello!"
+            f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 text:Hello!"
         )
-        assert capture._format_packet(packet, mock_interface, True) == with_suffix_if_portnum(packet, expected)
+        assert capture._format_packet(
+            packet, mock_interface, True
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_node_resolution_no_interface(self):
         """Test that no resolution occurs when interface is None."""
@@ -345,9 +325,11 @@ class TestNodeResolution:
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
         expected = (
-            f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: Hello!"
+            f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 text:Hello!"
         )
-        assert capture._format_packet(packet, None, False) == with_suffix_if_portnum(packet, expected)
+        assert capture._format_packet(packet, None, False) == with_suffix_if_portnum(
+            packet, expected
+        )
 
     def test_node_resolution_missing_user_data(self):
         """Test that nodes without proper user data fall back to raw IDs."""
@@ -375,9 +357,11 @@ class TestNodeResolution:
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
         expected = (
-            f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: Hello!"
+            f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 text:Hello!"
         )
-        assert capture._format_packet(packet, mock_interface, False) == with_suffix_if_portnum(packet, expected)
+        assert capture._format_packet(
+            packet, mock_interface, False
+        ) == with_suffix_if_portnum(packet, expected)
 
 
 class TestNewFormattingFeatures:
@@ -406,8 +390,10 @@ class TestNewFormattingFeatures:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Hello World!"
-        assert capture._format_packet(packet, mock_interface, False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) text:Hello World!"
+        assert capture._format_packet(
+            packet, mock_interface, False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_new_format_with_unresolved_names(self):
         """Test that unresolved node IDs fall back to raw IDs in the new format."""
@@ -433,8 +419,10 @@ class TestNewFormattingFeatures:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:2 -90dBm/8.5dB Hop:0 from:Known User (!ca0e1234) to:!0eabc567 Text: Testing unresolved"
-        assert capture._format_packet(packet, mock_interface, False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:2 -90dBm/8.5dB Hop:0 from:Known User (!ca0e1234) to:!0eabc567 text:Testing unresolved"
+        assert capture._format_packet(
+            packet, mock_interface, False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_new_format_with_no_resolve_flag(self):
         """Test that --no-resolve flag shows only raw IDs in the new format."""
@@ -464,8 +452,10 @@ class TestNewFormattingFeatures:
         capture = MeshCap(mock_args)
         # With no_resolve=True, should only show raw IDs despite having resolvable names
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:3 -88dBm/10.2dB Hop:0 from:!abcd2345 to:!1234a890 Position: lat=40.7128, lon=-74.006"
-        assert capture._format_packet(packet, mock_interface, True) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:3 -88dBm/10.2dB Hop:0 from:!abcd2345 to:!1234a890 pos:40.7128,-74.0060 0m"
+        assert capture._format_packet(
+            packet, mock_interface, True
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_format_packet_with_from_and_to(self):
         """Test formatting a packet that includes from and to integer fields."""
@@ -485,8 +475,10 @@ class TestNewFormattingFeatures:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: Hello with from/to!"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 text:Hello with from/to!"
+        assert capture._format_packet(
+            packet, MockInterface(), False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_format_packet_with_source_and_dest(self):
         """Test formatting a packet that includes source and dest in decoded payload."""
@@ -511,8 +503,10 @@ class TestNewFormattingFeatures:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:2 -90dBm/8.5dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: Message with routing info"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:2 -90dBm/8.5dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 text:Message with routing info"
+        assert capture._format_packet(
+            packet, MockInterface(), False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_format_packet_without_source_and_dest(self):
         """Test formatting a packet without source and dest fields (should default to unknown)."""
@@ -536,8 +530,10 @@ class TestNewFormattingFeatures:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:3 -85dBm/10.0dB Hop:0 from:!ae511234 to:!de515678 Position: lat=37.7749, lon=-122.4194"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:3 -85dBm/10.0dB Hop:0 from:!ae511234 to:!de515678 pos:37.7749,-122.4194 0m"
+        assert capture._format_packet(
+            packet, MockInterface(), False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_format_packet_all_address_fields_resolvable(self):
         """Test formatting a packet with all four address fields, all resolvable."""
@@ -571,8 +567,10 @@ class TestNewFormattingFeatures:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:Alice Node (!aaaaaaaa) to:Bob Node (!bbbbbbbb) Text: Full routing example"
-        assert capture._format_packet(packet, mock_interface, False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:Alice Node (!aaaaaaaa) to:Bob Node (!bbbbbbbb) text:Full routing example"
+        assert capture._format_packet(
+            packet, mock_interface, False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_format_packet_mixed_resolvable_unresolvable(self):
         """Test formatting a packet with only some address fields resolvable."""
@@ -605,8 +603,10 @@ class TestNewFormattingFeatures:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:2 -90dBm/8.5dB Hop:0 from:Known User (!ca0e0123) to:!0eabc099 Position: lat=37.7749, lon=-122.4194"
-        assert capture._format_packet(packet, mock_interface, False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:2 -90dBm/8.5dB Hop:0 from:Known User (!ca0e0123) to:!0eabc099 pos:37.7749,-122.4194 0m"
+        assert capture._format_packet(
+            packet, mock_interface, False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_format_packet_only_fromid_toid(self):
         """Test formatting a packet with only fromId and toId (backward compatibility)."""
@@ -631,8 +631,10 @@ class TestNewFormattingFeatures:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 -80dBm/15.0dB Hop:0 from:Old Sender (!a1dca0e1) to:Old Receiver (!a1dca0e2) Text: Simple message"
-        assert capture._format_packet(packet, mock_interface, False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:1 -80dBm/15.0dB Hop:0 from:Old Sender (!a1dca0e1) to:Old Receiver (!a1dca0e2) text:Simple message"
+        assert capture._format_packet(
+            packet, mock_interface, False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_format_encrypted_packet_comprehensive(self):
         """Test formatting an encrypted packet without decoded section."""
@@ -650,8 +652,10 @@ class TestNewFormattingFeatures:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:4 -95dBm/3.2dB Hop:0 from:!eecabc01 to:!eecabc02 Encrypted: length=39"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:4 -95dBm/3.2dB Hop:0 from:!eecabc01 to:!eecabc02 encrypted:len=39"
+        assert capture._format_packet(
+            packet, MockInterface(), False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_format_packet_with_hop_limit(self):
         """Test formatting a packet with hop_limit field."""
@@ -670,8 +674,10 @@ class TestNewFormattingFeatures:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 -80dBm/12.0dB Hop:3 from:!a1b2c3d4 to:!e5f6a7b8 Text: Hello World!"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:1 -80dBm/12.0dB Hop:3 from:!a1b2c3d4 to:!e5f6a7b8 text:Hello World!"
+        assert capture._format_packet(
+            packet, MockInterface(), False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_node_number_display_instead_of_node_id(self):
         """Test that _format_packet displays node numbers (123456789) instead of node IDs (!075bcd15)."""
@@ -701,7 +707,7 @@ class TestNewFormattingFeatures:
 
         # Expected: canonical addressing format using from/to pairs
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:!075bcd15 to:!3ade68b1 Text: Hello World!"
+        expected = f"[{ts}] Ch:1 -85dBm/12.0dB Hop:0 from:!075bcd15 to:!3ade68b1 text:Hello World!"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -733,7 +739,7 @@ class TestNewFormattingFeatures:
 
         # Expected: should fall back to node ID since no node number is available
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:2 -90dBm/8.5dB Hop:0 from:Old Node (!deadbeef) to:unknown Text: From old capture"
+        expected = f"[{ts}] Ch:2 -90dBm/8.5dB Hop:0 from:Old Node (!deadbeef) to:unknown text:From old capture"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -769,7 +775,7 @@ class TestNewFormattingFeatures:
 
         # Expected: resolved name with node ID fallback for first, raw node ID for second
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:3 -85dBm/10.0dB Hop:0 from:Known Old Node (!abc12345) to:!def67890 Position: lat=40.0, lon=-74.0"
+        expected = f"[{ts}] Ch:3 -85dBm/10.0dB Hop:0 from:Known Old Node (!abc12345) to:!def67890 pos:40.0000,-74.0000 0m"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -984,8 +990,10 @@ class TestRSSIHandling:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 -85dBm/12.5dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: Both values"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:1 -85dBm/12.5dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 text:Both values"
+        assert capture._format_packet(
+            packet, MockInterface(), False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_packet_with_only_rssi(self):
         """Test formatting a packet with only rxRssi present."""
@@ -1003,9 +1011,11 @@ class TestRSSIHandling:
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
         expected = (
-            f"[{ts}] Ch:1 -85dBm Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: Only RSSI"
+            f"[{ts}] Ch:1 -85dBm Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 text:Only RSSI"
         )
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        assert capture._format_packet(
+            packet, MockInterface(), False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_packet_with_only_snr(self):
         """Test formatting a packet with only rxSnr present."""
@@ -1022,10 +1032,10 @@ class TestRSSIHandling:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = (
-            f"[{ts}] Ch:1 12.5dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: Only SNR"
-        )
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:1 12.5dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 text:Only SNR"
+        assert capture._format_packet(
+            packet, MockInterface(), False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_packet_with_rssi_fallback(self):
         """Test formatting a packet that uses rssi fallback when rxRssi is missing."""
@@ -1043,8 +1053,10 @@ class TestRSSIHandling:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 -90dBm/8.0dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: RSSI fallback"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:1 -90dBm/8.0dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 text:RSSI fallback"
+        assert capture._format_packet(
+            packet, MockInterface(), False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_packet_with_no_signal_values(self):
         """Test formatting a packet with no signal strength values."""
@@ -1060,8 +1072,10 @@ class TestRSSIHandling:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 - Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: No signals"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:1 - Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 text:No signals"
+        assert capture._format_packet(
+            packet, MockInterface(), False
+        ) == with_suffix_if_portnum(packet, expected)
 
     def test_packet_rxrssi_preferred_over_rssi_fallback(self):
         """Test that rxRssi is preferred over rssi fallback when both are present."""
@@ -1080,8 +1094,10 @@ class TestRSSIHandling:
         mock_args.label_mode = "named-with-hex"
         capture = MeshCap(mock_args)
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 -85dBm/12.5dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 Text: Preference test"
-        assert capture._format_packet(packet, MockInterface(), False) == with_suffix_if_portnum(packet, expected)
+        expected = f"[{ts}] Ch:1 -85dBm/12.5dB Hop:0 from:!a1b2c3d4 to:!e5f6a7b8 text:Preference test"
+        assert capture._format_packet(
+            packet, MockInterface(), False
+        ) == with_suffix_if_portnum(packet, expected)
 
 
 class TestGoldenExamples:
@@ -1111,7 +1127,7 @@ class TestGoldenExamples:
         capture = MeshCap(mock_args)
 
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:1 -85dBm/12.5dB Hop:0 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Hello from Alice!"
+        expected = f"[{ts}] Ch:1 -85dBm/12.5dB Hop:0 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) text:Hello from Alice!"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -1135,7 +1151,7 @@ class TestGoldenExamples:
         capture = MeshCap(mock_args)
 
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:2 -92dBm/8.0dB Hop:0 from:!12345678 to:!87654321 Text: Message from unknown"
+        expected = f"[{ts}] Ch:2 -92dBm/8.0dB Hop:0 from:!12345678 to:!87654321 text:Message from unknown"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -1163,7 +1179,7 @@ class TestGoldenExamples:
         capture = MeshCap(mock_args)
 
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:3 -78dBm/15.2dB Hop:0 from:Known User (!aaaa1234) to:!bbbb5678 Text: Mixed resolution test"
+        expected = f"[{ts}] Ch:3 -78dBm/15.2dB Hop:0 from:Known User (!aaaa1234) to:!bbbb5678 text:Mixed resolution test"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -1199,7 +1215,7 @@ class TestGoldenExamples:
 
         # Note: Current implementation shows lat/lon, not altitude in preview
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:4 -88dBm/10.0dB Hop:0 from:GPS Tracker (!cccc1234) to:Base Station (!dddd5678) Position: lat=37.7749, lon=-122.4194"
+        expected = f"[{ts}] Ch:4 -88dBm/10.0dB Hop:0 from:GPS Tracker (!cccc1234) to:Base Station (!dddd5678) pos:37.7749,-122.4194 43m"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -1226,7 +1242,7 @@ class TestGoldenExamples:
         capture = MeshCap(mock_args)
 
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:5 -95dBm/5.5dB Hop:0 from:!eeee1234 to:!ffff5678 Position: lat=40.7128, lon=-74.006"
+        expected = f"[{ts}] Ch:5 -95dBm/5.5dB Hop:0 from:!eeee1234 to:!ffff5678 pos:40.7128,-74.0060 0m"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -1254,7 +1270,7 @@ class TestGoldenExamples:
         capture = MeshCap(mock_args)
 
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:6 -90dBm/7.5dB Hop:0 from:Bad GPS Unit (!aaaa9999) to:!bbbb8888 Position: lat=0, lon=0"
+        expected = f"[{ts}] Ch:6 -90dBm/7.5dB Hop:0 from:Bad GPS Unit (!aaaa9999) to:!bbbb8888 pos:0.0000,0.0000 0m"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -1282,7 +1298,7 @@ class TestGoldenExamples:
         capture = MeshCap(mock_args)
 
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:7 -82dBm/13.8dB Hop:0 from:Secure Node Alpha (!aaaa0001) to:Secure Node Beta (!bbbb0002) Encrypted: length=59"
+        expected = f"[{ts}] Ch:7 -82dBm/13.8dB Hop:0 from:Secure Node Alpha (!aaaa0001) to:Secure Node Beta (!bbbb0002) encrypted:len=59"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -1306,7 +1322,7 @@ class TestGoldenExamples:
         capture = MeshCap(mock_args)
 
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:8 -99dBm/2.1dB Hop:0 from:!cccc0001 to:!dddd0002 Encrypted: length=9"
+        expected = f"[{ts}] Ch:8 -99dBm/2.1dB Hop:0 from:!cccc0001 to:!dddd0002 encrypted:len=9"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -1371,7 +1387,7 @@ class TestGoldenExamples:
         capture = MeshCap(mock_args)
 
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:9 -87dBm/9.5dB Hop:5 from:Router Node (!aaaa1111) to:!bbbb2222 Text: Multi-hop message"
+        expected = f"[{ts}] Ch:9 -87dBm/9.5dB Hop:5 from:Router Node (!aaaa1111) to:!bbbb2222 text:Multi-hop message"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -1396,7 +1412,7 @@ class TestGoldenExamples:
         capture = MeshCap(mock_args)
 
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:10 -80dBm/12.0dB Hop:0 from:Silent Node (!cccc3333) to:!dddd4444 Text: "
+        expected = f"[{ts}] Ch:10 -80dBm/12.0dB Hop:0 from:Silent Node (!cccc3333) to:!dddd4444 text:"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -1431,7 +1447,7 @@ class TestGoldenExamples:
 
         # Expected format includes NH: field between Hop:3 and from:
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 NH:NH Node (!a1b2c315) from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Directed hop"
+        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 NH:NH Node (!a1b2c315) from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) text:Directed hop"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -1466,7 +1482,7 @@ class TestGoldenExamples:
 
         # With no_resolve=True, should show only hex byte without name resolution
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 NH:0x15 from:!a1b2c3d4 to:!e5f6a7b8 Text: Directed hop"
+        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 NH:0x15 from:!a1b2c3d4 to:!e5f6a7b8 text:Directed hop"
         result = capture._format_packet(packet, mock_interface, True)  # no_resolve=True
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -1498,7 +1514,7 @@ class TestGoldenExamples:
 
         # Should NOT contain " NH:" substring
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: No next hop"
+        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) text:No next hop"
         result = capture._format_packet(packet_no_key, mock_interface, False)
         assert result == with_suffix_if_portnum(packet_no_key, expected)
         assert " NH:" not in result
@@ -1518,7 +1534,7 @@ class TestGoldenExamples:
 
         # Should NOT contain " NH:" substring
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Zero next hop"
+        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) text:Zero next hop"
         result = capture._format_packet(packet_zero, mock_interface, False)
         assert result == with_suffix_if_portnum(packet_zero, expected)
         assert " NH:" not in result
@@ -1554,7 +1570,7 @@ class TestGoldenExamples:
 
         # Expected format includes NH: field between Hop:3 and from:
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 NH:NH Node (!a1b2c315) from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Directed hop"
+        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 NH:NH Node (!a1b2c315) from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) text:Directed hop"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -1587,7 +1603,7 @@ class TestGoldenExamples:
 
         # Should show raw hex since no node matches
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 NH:0x42 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: No matching node"
+        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 NH:0x42 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) text:No matching node"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)
 
@@ -1621,6 +1637,6 @@ class TestGoldenExamples:
 
         # Should show raw hex since multiple nodes match
         ts = local_ts_str(1697731200)
-        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 NH:0x15 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Multiple matches"
+        expected = f"[{ts}] Ch:5 -85dBm/12.5dB Hop:3 NH:0x15 from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) text:Multiple matches"
         result = capture._format_packet(packet, mock_interface, False)
         assert result == with_suffix_if_portnum(packet, expected)

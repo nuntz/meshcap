@@ -246,18 +246,30 @@ class MeshCap:
                 interface = meshtastic.tcp_interface.TCPInterface(
                     hostname=self.args.host, portNumber=self.args.tcp_port
                 )
-                print(f"Successfully connected to device at {self.args.host}:{self.args.tcp_port}")
+                print(
+                    f"Successfully connected to device at {self.args.host}:{self.args.tcp_port}"
+                )
             else:
                 # Serial connection
                 interface = meshtastic.serial_interface.SerialInterface(self.args.port)
                 print(f"Successfully connected to device at {self.args.port}")
             return interface
         except ConnectionRefusedError as e:
-            print(f"Error: TCP connection refused to {self.args.host}:{self.args.tcp_port}: {e}", file=sys.stderr)
+            print(
+                f"Error: TCP connection refused to {self.args.host}:{self.args.tcp_port}: {e}",
+                file=sys.stderr,
+            )
             sys.exit(1)
         except Exception as e:
-            connection_type = f"{self.args.host}:{self.args.tcp_port}" if self.args.host else self.args.port
-            print(f"Error: Connection to device failed: {e}", file=sys.stderr)
+            connection_type = (
+                f"{self.args.host}:{self.args.tcp_port}"
+                if self.args.host
+                else self.args.port
+            )
+            print(
+                f"Error: Connection to device at {connection_type} failed: {e}",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
     def format_node_label(
@@ -302,59 +314,48 @@ class MeshCap:
             raise ValueError(f"Unknown label_mode: {label_mode}")
 
     def _format_packet(self, packet, interface, no_resolve, verbose=False):
-        """Format a packet dictionary into a display string.
+        """Format a packet dictionary into a display string."""
 
-        Args:
-            packet (dict): The packet dictionary from Meshtastic
-            interface: The Meshtastic interface object for node lookups
-            no_resolve (bool): If True, skip node name resolution
-            verbose (bool): If True, show JSON details for unknown packet types
-
-        Returns:
-            str: Formatted packet string
-        """
-        # Convert rxTime (stored as UTC) to local time, keeping the same
-        # printable shape (YYYY-MM-DD HH:MM:SS) but reflecting local timezone.
+        # Local timestamp (YYYY-MM-DD HH:MM:SS)
         timestamp = (
             datetime.fromtimestamp(packet.get("rxTime", 0), timezone.utc)
-            .astimezone()  # -> local time
+            .astimezone()
             .strftime("%Y-%m-%d %H:%M:%S")
         )
 
         channel_hash = str(packet.get("channel", 0))
 
-        rssi = packet.get("rxRssi")
+        # Signal: prefer rxRssi, then rssi; include SNR if present
+        rssi = packet.get("rxRssi", packet.get("rssi"))
         snr = packet.get("rxSnr")
-        parts = []
+        signal_parts = []
         if rssi is not None:
-            parts.append(f"{rssi}dBm")
-        elif packet.get("rssi") is not None:
-            parts.append(f"{packet.get('rssi')}dBm")
+            signal_parts.append(f"{rssi}dBm")
         if snr is not None:
-            parts.append(f"{snr}dB")
-        signal = "/".join(parts) if parts else "-"
+            signal_parts.append(f"{snr}dB")
+        signal = "/".join(signal_parts) if signal_parts else "-"
 
-        hop_info = f" {self._format_hop_info(packet)}"
-        # Flags string (e.g., " [A]", " [M]", " [AM]" or "")
-        flags_string = self._format_flags(packet)
+        # Hop + flags
+        hop_info = self._format_hop_info(
+            packet
+        )  # expected to return "" or a ready chunk
+        flags_string = self._format_flags(
+            packet
+        )  # expected to return "" or like " [A]"
 
-        # Optional next-hop display (only when set and non-zero)
+        # Optional next-hop label/hex
         next_hop_info = ""
         nh = packet.get("nextHop") or packet.get("next_hop")
         if isinstance(nh, int) and nh != 0:
-            # Always show raw last-byte:
-            nh_str = f"0x{nh:02x}"
-            # Optional name resolution:
             label = None
-            if interface and hasattr(interface, "nodes") and not no_resolve:
-                # Find nodes whose user id last byte equals nh
+            if interface and getattr(interface, "nodes", None) and not no_resolve:
                 matches = []
-                for uid, node in (interface.nodes or {}).items():
+                for uid in interface.nodes.keys():
                     try:
                         if int(uid[-2:], 16) == (nh & 0xFF):
                             matches.append(uid)
                     except Exception:
-                        pass
+                        continue
                 if len(matches) == 1:
                     label = self.format_node_label(
                         interface,
@@ -362,67 +363,43 @@ class MeshCap:
                         label_mode=self.args.label_mode,
                         no_resolve=False,
                     )
-            next_hop_info = f" NH:{label or nh_str}"
+            next_hop_info = f"NH:{label or f'0x{nh:02x}'}"
 
-        # Extract canonical from/to candidates
-        from_candidate = packet.get("fromId") or packet.get("from")
-        to_candidate = packet.get("toId") or packet.get("to")
+        # From/To labels (or "unknown")
+        def _label_or_unknown(tag):
+            uid = packet.get(f"{tag}Id") or packet.get(tag)
+            if not uid:
+                return f"{tag}:unknown"
+            return f"{tag}:{self.format_node_label(interface, uid, label_mode=self.args.label_mode, no_resolve=no_resolve)}"
 
-        # Build clean address string with canonical addressing
-        address_parts = []
+        address_str = f"{_label_or_unknown('from')} {_label_or_unknown('to')}"
 
-        if from_candidate:
-            from_label = self.format_node_label(
-                interface,
-                from_candidate,
-                label_mode=self.args.label_mode,
-                no_resolve=no_resolve,
-            )
-            address_parts.append(f"from:{from_label}")
-        else:
-            address_parts.append("from:unknown")
+        # Only tag encrypted length if there's no decoded payload; otherwise let payload_formatter handle details
+        decoded = packet.get("decoded") or {}
+        packet_tag = ""
+        if not decoded:
+            enc = packet.get("encrypted", "")
+            packet_tag = f"encrypted:len={len(enc)}" if enc is not None else ""
 
-        if to_candidate:
-            to_label = self.format_node_label(
-                interface,
-                to_candidate,
-                label_mode=self.args.label_mode,
-                no_resolve=no_resolve,
-            )
-            address_parts.append(f"to:{to_label}")
-        else:
-            address_parts.append("to:unknown")
-
-        address_str = " ".join(address_parts)
-
-        # Format packet payload
-        decoded = packet.get("decoded", {})
-        if decoded and "portnum" in decoded:
-            portnum = decoded["portnum"]
-
-            if portnum == "TEXT_MESSAGE_APP":
-                packet_type = "Text"
-                payload = decoded.get("text", "")
-            elif portnum == "POSITION_APP":
-                packet_type = "Position"
-                position = decoded.get("position", {})
-                lat = position.get("latitude", 0)
-                lon = position.get("longitude", 0)
-                payload = f"lat={lat}, lon={lon}"
-            else:
-                packet_type = portnum
-                payload = str(decoded) if verbose else f"[{portnum}]"
-        else:
-            packet_type = "Encrypted"
-            payload = f"length={len(packet.get('encrypted', ''))}"
-
-        base = (
-            f"[{timestamp}] Ch:{channel_hash} {signal}{hop_info}{flags_string}{next_hop_info} {address_str} {packet_type}: {payload}"
-        )
+        # Extra, formatter-defined suffix
         extra = self.payload_formatter.format(packet)
-        if extra:
-            base = f"{base} {extra}"
-        return base
+
+        json_payload = str(decoded) if verbose else None
+
+        # Assemble compactly, skipping empties to avoid double spaces
+        parts = [
+            f"[{timestamp}]",
+            f"Ch:{channel_hash}",
+            signal,
+            hop_info,
+            flags_string,
+            next_hop_info,
+            address_str,
+            packet_tag,
+            extra,
+            json_payload,
+        ]
+        return " ".join(p for p in parts if p)
 
 
 def main():
@@ -432,7 +409,7 @@ def main():
     )
 
     parser = argparse.ArgumentParser(description="Meshtastic network dump tool")
-    
+
     # Create mutually exclusive group for connection arguments
     connection_group = parser.add_mutually_exclusive_group()
     connection_group.add_argument(
@@ -445,7 +422,7 @@ def main():
         "--host",
         help="TCP/IP hostname or IP address for network connection",
     )
-    
+
     parser.add_argument(
         "--tcp-port",
         type=int,

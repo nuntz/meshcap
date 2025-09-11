@@ -115,7 +115,11 @@ class PayloadFormatter:
     def _format_telemetry(self, decoded: dict[str, Any]) -> str:
         telemetry = decoded.get("telemetry") or {}
         dev = telemetry.get("device_metrics") or telemetry.get("deviceMetrics") or {}
-        env = telemetry.get("environment_metrics") or telemetry.get("environmentMetrics") or {}
+        env = (
+            telemetry.get("environment_metrics")
+            or telemetry.get("environmentMetrics")
+            or {}
+        )
 
         bat_raw = dev.get("battery_level") or dev.get("batteryLevel")
         volt_raw = dev.get("voltage")

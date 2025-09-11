@@ -65,7 +65,7 @@ class TestE2EFormatLine:
         expected = (
             f"[{ts}] Ch:5 -85dBm/12.5dB Hops:4/7 "
             f"from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) "
-            f"Position: lat=12.345678, lon=98.765432 pos:12.3457,98.7654 150m"
+            f"pos:12.3457,98.7654 150m"
         )
         assert result == expected
 
@@ -76,4 +76,4 @@ class TestE2EFormatLine:
         assert "Hops:4/7" in result  # Hop usage
         assert "from:Alice Node (!a1b2c3d4)" in result  # Resolved from address
         assert "to:Bob Node (!e5f6a7b8)" in result  # Resolved to address
-        assert "Position: lat=12.345678, lon=98.765432" in result  # Payload
+        assert "pos:12.3457,98.7654 150m" in result  # Payload

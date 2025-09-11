@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 
 from meshcap.payload_formatter import PayloadFormatter
 
@@ -16,7 +15,11 @@ class TestPayloadFormatter:
         packet = {
             "decoded": {
                 "portnum": "POSITION_APP",
-                "position": {"latitude": 12.345678, "longitude": 98.765432, "altitude": 150},
+                "position": {
+                    "latitude": 12.345678,
+                    "longitude": 98.765432,
+                    "altitude": 150,
+                },
             }
         }
         assert pf.format(packet) == "pos:12.3457,98.7654 150m"
