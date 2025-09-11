@@ -34,7 +34,14 @@ class TestE2EFormatLine:
             "hop_start": 7,
             "fromId": "!a1b2c3d4",
             "toId": "!e5f6a7b8",
-            "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "Test message"},
+            "decoded": {
+                "portnum": "POSITION_APP",
+                "position": {
+                    "latitude": 12.345678,
+                    "longitude": 98.765432,
+                    "altitude": 150,
+                },
+            },
         }
 
         # Mock interface with node resolution data
@@ -57,7 +64,8 @@ class TestE2EFormatLine:
         ts = local_ts_str(1697731200)
         expected = (
             f"[{ts}] Ch:5 -85dBm/12.5dB Hops:4/7 "
-            f"from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) Text: Test message text:Test message"
+            f"from:Alice Node (!a1b2c3d4) to:Bob Node (!e5f6a7b8) "
+            f"Position: lat=12.345678, lon=98.765432 pos:12.3457,98.7654 150m"
         )
         assert result == expected
 
@@ -68,4 +76,4 @@ class TestE2EFormatLine:
         assert "Hops:4/7" in result  # Hop usage
         assert "from:Alice Node (!a1b2c3d4)" in result  # Resolved from address
         assert "to:Bob Node (!e5f6a7b8)" in result  # Resolved to address
-        assert "Text: Test message" in result  # Payload
+        assert "Position: lat=12.345678, lon=98.765432" in result  # Payload
