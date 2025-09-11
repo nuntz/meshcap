@@ -8,6 +8,7 @@ import meshtastic.serial_interface
 import meshtastic.tcp_interface
 from pubsub import pub
 from .filter import parse_filter, evaluate_filter, FilterError
+from .payload_formatter import PayloadFormatter
 from .identifiers import to_node_num, to_user_id, NodeBook
 
 
@@ -28,6 +29,8 @@ class MeshCap:
         self.should_exit = False
         # Cache NodeBook per MeshCap instance (initialized when connected)
         self.node_book: NodeBook | None = None
+        # Initialize payload formatter
+        self.payload_formatter = PayloadFormatter()
 
     def _format_hop_info(self, packet: dict) -> str:
         """Format hop information from a packet.
@@ -413,7 +416,13 @@ class MeshCap:
             packet_type = "Encrypted"
             payload = f"length={len(packet.get('encrypted', ''))}"
 
-        return f"[{timestamp}] Ch:{channel_hash} {signal}{hop_info}{flags_string}{next_hop_info} {address_str} {packet_type}: {payload}"
+        base = (
+            f"[{timestamp}] Ch:{channel_hash} {signal}{hop_info}{flags_string}{next_hop_info} {address_str} {packet_type}: {payload}"
+        )
+        extra = self.payload_formatter.format(packet)
+        if extra:
+            base = f"{base} {extra}"
+        return base
 
 
 def main():
