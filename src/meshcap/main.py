@@ -5,6 +5,7 @@ import pickle
 import logging
 from datetime import datetime, timezone
 import meshtastic.serial_interface
+import meshtastic.tcp_interface
 from pubsub import pub
 from .filter import parse_filter, evaluate_filter, FilterError
 from .identifiers import to_node_num, to_user_id, NodeBook
@@ -193,7 +194,7 @@ class MeshCap:
                 sys.exit(1)
 
         # Connect to device for live capture
-        interface = self._connect_to_device(self.args.port)
+        interface = self._connect_to_interface()
         # Initialize NodeBook once per MeshCap instance after connecting
         self.node_book = NodeBook(interface)
 
@@ -227,23 +228,32 @@ class MeshCap:
             if self.write_file_handle:
                 self.write_file_handle.close()
 
-    def _connect_to_device(self, port):
-        """Connect to a Meshtastic device via serial interface.
-
-        Args:
-            port (str): The serial port path to connect to
+    def _connect_to_interface(self):
+        """Connect to a Meshtastic device via serial or TCP interface.
 
         Returns:
-            SerialInterface: The connected interface object
+            SerialInterface or TCPInterface: The connected interface object
 
         Raises:
             SystemExit: If connection fails, exits with status code 1
         """
         try:
-            interface = meshtastic.serial_interface.SerialInterface(port)
-            print(f"Successfully connected to device at {port}")
+            if self.args.host:
+                # TCP connection
+                interface = meshtastic.tcp_interface.TCPInterface(
+                    hostname=self.args.host, portNumber=self.args.tcp_port
+                )
+                print(f"Successfully connected to device at {self.args.host}:{self.args.tcp_port}")
+            else:
+                # Serial connection
+                interface = meshtastic.serial_interface.SerialInterface(self.args.port)
+                print(f"Successfully connected to device at {self.args.port}")
             return interface
+        except ConnectionRefusedError as e:
+            print(f"Error: TCP connection refused to {self.args.host}:{self.args.tcp_port}: {e}", file=sys.stderr)
+            sys.exit(1)
         except Exception as e:
+            connection_type = f"{self.args.host}:{self.args.tcp_port}" if self.args.host else self.args.port
             print(f"Error: Connection to device failed: {e}", file=sys.stderr)
             sys.exit(1)
 
