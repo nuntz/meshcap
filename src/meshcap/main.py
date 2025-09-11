@@ -413,11 +413,25 @@ def main():
     )
 
     parser = argparse.ArgumentParser(description="Meshtastic network dump tool")
-    parser.add_argument(
+    
+    # Create mutually exclusive group for connection arguments
+    connection_group = parser.add_mutually_exclusive_group()
+    connection_group.add_argument(
         "-p",
         "--port",
         default="/dev/ttyACM0",
         help="Serial device path (default: /dev/ttyACM0)",
+    )
+    connection_group.add_argument(
+        "--host",
+        help="TCP/IP hostname or IP address for network connection",
+    )
+    
+    parser.add_argument(
+        "--tcp-port",
+        type=int,
+        default=4403,
+        help="TCP port number for network connection (default: 4403)",
     )
     parser.add_argument(
         "--test-mode",
