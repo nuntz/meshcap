@@ -15,12 +15,19 @@ uv sync
 ### Basic Usage
 
 ```bash
-# Run with default port (/dev/ttyACM0)
+# Run with default serial port (/dev/ttyACM0)
 uv run meshcap
 
-# Run with custom port
+# Run with custom serial port
 uv run meshcap --port /dev/ttyUSB0
 uv run meshcap -p /dev/ttyUSB0
+
+# Connect via TCP/IP to a network-enabled device
+uv run meshcap --host 192.168.1.50
+uv run meshcap --host myradio.local
+
+# Connect via TCP/IP with custom port (default: 4403)
+uv run meshcap --host 192.168.1.50 --tcp-port 1234
 
 # Run with verbose output (shows JSON details for unknown packet types)
 uv run meshcap --verbose
@@ -45,14 +52,18 @@ uv run meshcap '(' src node A or dst node A ')' and port position
 ### File Operations
 
 ```bash
-# Write packets to file
+# Write packets to file (serial connection)
 uv run meshcap --write-file packets.bin
+
+# Write packets to file (TCP connection)
+uv run meshcap --host 192.168.1.50 --write-file packets.bin
 
 # Read from file with filtering
 uv run meshcap -r packets.bin encrypted and hop_limit '>' 5
 
-# Limit packet count
+# Limit packet count (works with both serial and TCP)
 uv run meshcap -c 10 priority HIGH or want_ack
+uv run meshcap --host myradio.local -c 10 port text
 ```
 
 ## Output Format
@@ -119,7 +130,14 @@ The tool only shows address fields that are present and differ from each other, 
 
 ## Command Line Options
 
-- `--port/-p`: Serial device path (default: `/dev/ttyACM0`)
+### Connection Options
+
+- `--port/-p`: Serial device path (default: `/dev/ttyACM0`) - **mutually exclusive with `--host`**
+- `--host`: TCP/IP hostname or IP address for network connection - **mutually exclusive with `--port`**
+- `--tcp-port`: TCP port number for network connection (default: `4403`) - used with `--host`
+
+### General Options
+
 - `--test-mode`: Run in test mode (exit after setup)
 - `--no-resolve/-n`: Disable node name resolution (show raw node numbers/IDs without names)
 - `--write-file/-w`: Write packets to binary file
@@ -127,6 +145,22 @@ The tool only shows address fields that are present and differ from each other, 
 - `--count/-c`: Exit after N packets
 - `--verbose/-v`: Enable verbose output (show JSON details for unknown packet types)
 - `filter`: Filter expression
+
+### Connection Examples
+
+```bash
+# Serial connection (default)
+uv run meshcap --port /dev/ttyUSB0
+
+# TCP connection to IP address
+uv run meshcap --host 192.168.1.50
+
+# TCP connection to hostname with custom port
+uv run meshcap --host myradio.local --tcp-port 1234
+
+# Invalid: cannot use both serial and TCP
+uv run meshcap --port /dev/ttyUSB0 --host 192.168.1.50  # Error!
+```
 
 ## Filter Syntax
 
@@ -155,14 +189,17 @@ The tool only shows address fields that are present and differ from each other, 
 ### Examples
 
 ```bash
-# Text messages from specific node
+# Text messages from specific node (serial connection)
 uv run meshcap src node !12345678 and port text
+
+# Text messages from specific node (TCP connection)
+uv run meshcap --host 192.168.1.50 src node !12345678 and port text
 
 # Messages from the user named "Alice"
 uv run meshcap src user Alice
 
-# High priority or ack-required packets
-uv run meshcap priority HIGH or want_ack
+# High priority or ack-required packets (TCP with custom port)
+uv run meshcap --host myradio.local --tcp-port 1234 priority HIGH or want_ack
 
 # Complex expression
 uv run meshcap '(' src node A or dst node A ')' and '(' port text or port position ')'
@@ -174,8 +211,8 @@ uv run meshcap encrypted and hop_limit '>' 5
 uv run meshcap node src == !deadbeef
 uv run meshcap node src == 3735928559
 
-# Show verbose output for unknown packet types
-uv run meshcap --verbose port admin
+# Show verbose output for unknown packet types (TCP connection)
+uv run meshcap --host 192.168.1.50 --verbose port admin
 ```
 
 ## Development
@@ -209,5 +246,5 @@ uv build
 
 ## Dependencies
 
-- `meshtastic`: Core Meshtastic library
+- `meshtastic`: Core Meshtastic library (supports both serial and TCP connections)
 - `pytest`: Testing framework
