@@ -68,4 +68,81 @@ class PayloadFormatter:
                 alt_i = 0
             return f"pos:{lat_f:.4f},{lon_f:.4f} {alt_i}m"
 
+        if portnum == "NODEINFO_APP":
+            user = decoded.get("user") or {}
+            # Support both camelCase and snake_case keys for robustness
+            long_name = user.get("longName") or user.get("long_name") or ""
+            short_name = user.get("shortName") or user.get("short_name") or ""
+            hw_model = user.get("hwModel") or user.get("hw_model") or ""
+
+            # Build name part intelligently to avoid dangling separators
+            if long_name and short_name:
+                name_part = f"{long_name}/{short_name}"
+            elif long_name:
+                name_part = str(long_name)
+            elif short_name:
+                name_part = str(short_name)
+            else:
+                name_part = ""
+
+            hw_part = f" {hw_model}" if hw_model else ""
+            return f"user:{name_part}{hw_part}"
+
+        if portnum == "TELEMETRY_APP":
+            telemetry = decoded.get("telemetry") or {}
+            dev = (
+                telemetry.get("device_metrics")
+                or telemetry.get("deviceMetrics")
+                or {}
+            )
+            env = (
+                telemetry.get("environment_metrics")
+                or telemetry.get("environmentMetrics")
+                or {}
+            )
+
+            # Extract battery level and voltage
+            bat_raw = dev.get("battery_level") or dev.get("batteryLevel")
+            volt_raw = dev.get("voltage")
+            temp_raw = env.get("temperature")
+
+            bat_str = ""
+            if bat_raw is not None:
+                try:
+                    # Accept int/float/str; clamp to int representation for display
+                    bat_val = int(float(bat_raw))
+                    bat_str = f"{bat_val}%"
+                except (TypeError, ValueError):
+                    bat_str = ""
+
+            volt_str = ""
+            if volt_raw is not None:
+                try:
+                    volt_val = float(volt_raw)
+                    volt_str = f"{volt_val:.2f}V"
+                except (TypeError, ValueError):
+                    volt_str = ""
+
+            parts: list[str] = []
+
+            # Combine battery and voltage under single 'bat=' segment, with '/' when both exist
+            if bat_str or volt_str:
+                if bat_str and volt_str:
+                    parts.append(f"bat={bat_str}/{volt_str}")
+                elif bat_str:
+                    parts.append(f"bat={bat_str}")
+                else:
+                    parts.append(f"bat={volt_str}")
+
+            # Temperature with one decimal if available
+            if temp_raw is not None:
+                try:
+                    temp_val = float(temp_raw)
+                    parts.append(f"temp={temp_val:.1f}°C")
+                except (TypeError, ValueError):
+                    pass
+
+            suffix = " ".join(parts)
+            return f"tele:{suffix}" if suffix else "tele:"
+
         return "[unformatted]"

@@ -38,3 +38,92 @@ class TestPayloadFormatter:
 
         assert pf.format(packet_no_decoded) == ""
         assert pf.format(packet_decoded_no_port) == ""
+
+    def test_nodeinfo_format_full(self) -> None:
+        pf = PayloadFormatter()
+        packet = {
+            "decoded": {
+                "portnum": "NODEINFO_APP",
+                "user": {
+                    "longName": "Alice Wonderland",
+                    "shortName": "Alice",
+                    "hwModel": "T-Echo",
+                },
+            }
+        }
+        assert pf.format(packet) == "user:Alice Wonderland/Alice T-Echo"
+
+    def test_nodeinfo_format_partial(self) -> None:
+        pf = PayloadFormatter()
+        # Only longName present
+        packet_long_only = {
+            "decoded": {
+                "portnum": "NODEINFO_APP",
+                "user": {"longName": "Solo Long"},
+            }
+        }
+        assert pf.format(packet_long_only) == "user:Solo Long"
+
+        # Only hwModel present
+        packet_hw_only = {
+            "decoded": {
+                "portnum": "NODEINFO_APP",
+                "user": {"hwModel": "LILYGO"},
+            }
+        }
+        assert pf.format(packet_hw_only) == "user: LILYGO"
+
+        # Only shortName present
+        packet_short_only = {
+            "decoded": {
+                "portnum": "NODEINFO_APP",
+                "user": {"shortName": "Al"},
+            }
+        }
+        assert pf.format(packet_short_only) == "user:Al"
+
+    def test_telemetry_format_full(self) -> None:
+        pf = PayloadFormatter()
+        packet = {
+            "decoded": {
+                "portnum": "TELEMETRY_APP",
+                "telemetry": {
+                    "device_metrics": {"battery_level": 78, "voltage": 3.703},
+                    "environment_metrics": {"temperature": 24.12},
+                },
+            }
+        }
+        assert pf.format(packet) == "tele:bat=78%/3.70V temp=24.1°C"
+
+    def test_telemetry_format_partial(self) -> None:
+        pf = PayloadFormatter()
+        # Only voltage
+        packet_volt_only = {
+            "decoded": {
+                "portnum": "TELEMETRY_APP",
+                "telemetry": {"device_metrics": {"voltage": 3.8}},
+            }
+        }
+        assert pf.format(packet_volt_only) == "tele:bat=3.80V"
+
+        # Only battery
+        packet_bat_only = {
+            "decoded": {
+                "portnum": "TELEMETRY_APP",
+                "telemetry": {"device_metrics": {"battery_level": 53}},
+            }
+        }
+        assert pf.format(packet_bat_only) == "tele:bat=53%"
+
+        # Only temperature
+        packet_temp_only = {
+            "decoded": {
+                "portnum": "TELEMETRY_APP",
+                "telemetry": {"environment_metrics": {"temperature": 21.0}},
+            }
+        }
+        assert pf.format(packet_temp_only) == "tele:temp=21.0°C"
+
+        # Missing everything in telemetry
+        packet_empty = {"decoded": {"portnum": "TELEMETRY_APP", "telemetry": {}}}
+        assert pf.format(packet_empty) == "tele:"
