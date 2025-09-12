@@ -7,6 +7,7 @@ using logical expressions with 'and', 'or', 'not', and parentheses for precedenc
 from typing import List, Union, Tuple, Any, Dict
 
 from meshcap.identifiers import to_node_num
+from . import constants
 
 
 class FilterError(Exception):
@@ -377,12 +378,12 @@ class FilterEvaluator:
 
         # Handle common port names
         port_mapping = {
-            "text": "TEXT_MESSAGE_APP",
-            "position": "POSITION_APP",
-            "nodeinfo": "NODEINFO_APP",
-            "routing": "ROUTING_APP",
-            "admin": "ADMIN_APP",
-            "telemetry": "TELEMETRY_APP",
+            "text": constants.TEXT_MESSAGE_APP,
+            "position": constants.POSITION_APP,
+            "nodeinfo": constants.NODEINFO_APP,
+            "routing": constants.ROUTING_APP,
+            "admin": constants.ADMIN_APP,
+            "telemetry": constants.TELEMETRY_APP,
         }
 
         expected_port = port_mapping.get(value.lower(), value)
