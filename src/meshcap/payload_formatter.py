@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict
 
+from . import constants
+
 
 class PayloadFormatter:
     """Formats packet payloads based on `portnum`.
@@ -42,10 +44,10 @@ class PayloadFormatter:
 
         # Build dispatch map. Keys cover current string-based portnums.
         dispatch: Dict[Any, Callable[[dict[str, Any]], str]] = {
-            "TEXT_MESSAGE_APP": self._format_text,
-            "POSITION_APP": self._format_position,
-            "NODEINFO_APP": self._format_nodeinfo,
-            "TELEMETRY_APP": self._format_telemetry,
+            constants.TEXT_MESSAGE_APP: self._format_text,
+            constants.POSITION_APP: self._format_position,
+            constants.NODEINFO_APP: self._format_nodeinfo,
+            constants.TELEMETRY_APP: self._format_telemetry,
         }
 
         # Normalize potential integer portnums to names when known.
