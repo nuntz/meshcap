@@ -11,7 +11,6 @@ class TestHopFormatting:
         self.capture = MeshCap(mock_args)
 
     def test_format_hop_info_with_valid_hops(self):
-
         # Sample packet with hop_start and hop_limit
         packet = {"hop_start": 7, "hop_limit": 5}
 

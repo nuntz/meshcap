@@ -31,11 +31,24 @@ def to_node_num(value: int | str) -> int:
     """
     Convert Meshtastic node identifier to canonical uint32 integer format.
 
+    Supports all standard Meshtastic node identifier formats:
+
+    - Integers: Direct conversion, masked to 32 bits (e.g., 123456789)
+    - Hexadecimal strings: 8-character hex values (e.g., "a2ebdc20")
+    - Meshtastic user ID strings: Hex with "!" prefix (e.g., "!a2ebdc20")
+    - Special broadcast address: "^all" or "0000^all" -> 0xFFFFFFFF
+    - Whitespace is automatically stripped from string inputs
+    - Hex strings are zero-padded to 8 characters and case-insensitive
+
     Args:
-        value: Node identifier as int or string (hex format, optionally prefixed with '!')
+        value: Node identifier as int or string in any supported format
 
     Returns:
         Node identifier as uint32 integer
+
+    Raises:
+        TypeError: If value is not int or str
+        ValueError: If string format is invalid hex
     """
     if isinstance(value, int):
         return value & 0xFFFFFFFF
