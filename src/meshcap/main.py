@@ -53,11 +53,11 @@ class MeshCap:
 
         try:
             hs = int(hop_start)
-        except Exception:
+        except (ValueError, TypeError):
             hs = 0
         try:
             hl = int(hop_limit)
-        except Exception:
+        except (ValueError, TypeError):
             hl = 0
 
         # Show usage format only when both values are present and valid
@@ -90,14 +90,14 @@ class MeshCap:
         try:
             if bool(packet.get("wantAck", False)):
                 flags.append("A")
-        except Exception:
+        except TypeError:
             pass
 
         # 'M' flag for packets that came via MQTT (protobuf: via_mqtt)
         try:
             if bool(packet.get("viaMqtt", False)):
                 flags.append("M")
-        except Exception:
+        except TypeError:
             pass
 
         if not flags:
