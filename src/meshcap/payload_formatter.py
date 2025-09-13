@@ -76,7 +76,7 @@ class PayloadFormatter:
             alt_i = int(alt)
         except (TypeError, ValueError):
             alt_i = 0
-        return f"pos:{lat_f:.4f},{lon_f:.4f} {alt_i}m"
+        return f"pos:{lat_f:.{constants.POSITION_PRECISION}f},{lon_f:.{constants.POSITION_PRECISION}f} {alt_i}m"
 
     def _format_nodeinfo(self, decoded: dict[str, Any]) -> str:
         user = decoded.get("user") or {}
@@ -121,7 +121,7 @@ class PayloadFormatter:
         if volt_raw is not None:
             try:
                 volt_val = float(volt_raw)
-                volt_str = f"{volt_val:.2f}V"
+                volt_str = f"{volt_val:.{constants.VOLTAGE_PRECISION}f}V"
             except (TypeError, ValueError):
                 volt_str = ""
 
@@ -137,7 +137,7 @@ class PayloadFormatter:
         if temp_raw is not None:
             try:
                 temp_val = float(temp_raw)
-                parts.append(f"temp={temp_val:.1f}°C")
+                parts.append(f"temp={temp_val:.{constants.TEMPERATURE_PRECISION}f}°C")
             except (TypeError, ValueError):
                 pass
 

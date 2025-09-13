@@ -10,6 +10,7 @@ from pubsub import pub
 from .filter import parse_filter, evaluate_filter, FilterError
 from .payload_formatter import PayloadFormatter
 from .identifiers import to_node_num, to_user_id, NodeBook
+from . import constants
 
 
 class MeshCap:
@@ -223,7 +224,7 @@ class MeshCap:
         print(f"Listening for packets{count_msg}... Press Ctrl+C to exit")
         try:
             while not self.should_exit:
-                time.sleep(0.1)
+                time.sleep(constants.SLEEP_INTERVAL)
         except KeyboardInterrupt:
             print("\nExiting...")
         finally:
@@ -415,8 +416,8 @@ def main():
     connection_group.add_argument(
         "-p",
         "--port",
-        default="/dev/ttyACM0",
-        help="Serial device path (default: /dev/ttyACM0)",
+        default=constants.DEFAULT_SERIAL_PORT,
+        help=f"Serial device path (default: {constants.DEFAULT_SERIAL_PORT})",
     )
     connection_group.add_argument(
         "--host",
@@ -426,8 +427,8 @@ def main():
     parser.add_argument(
         "--tcp-port",
         type=int,
-        default=4403,
-        help="TCP port number for network connection (default: 4403)",
+        default=constants.DEFAULT_TCP_PORT,
+        help=f"TCP port number for network connection (default: {constants.DEFAULT_TCP_PORT})",
     )
     parser.add_argument(
         "--test-mode",
