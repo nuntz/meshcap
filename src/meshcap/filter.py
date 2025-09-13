@@ -4,10 +4,15 @@ This module implements a filter engine that allows filtering packets based on va
 using logical expressions with 'and', 'or', 'not', and parentheses for precedence.
 """
 
-from typing import List, Union, Tuple, Any, Dict
+from typing import List, Union, Tuple, Any, Dict, Optional, Literal
 
 from meshcap.identifiers import to_node_num
 from . import constants
+
+# Type aliases for clarity
+FilterPrimitive = Tuple[str, str, str]
+FilterOperator = Literal["and", "or", "not"]
+RPNItem = Union[FilterPrimitive, FilterOperator]
 
 
 class FilterError(Exception):
@@ -20,16 +25,16 @@ class FilterParser:
     """Parser that converts infix filter expressions to Reverse Polish Notation (RPN)."""
 
     # Operator precedence (higher number = higher precedence)
-    PRECEDENCE = {"or": 1, "and": 2, "not": 3}
+    PRECEDENCE: Dict[str, int] = {"or": 1, "and": 2, "not": 3}
 
     # Right-associative operators
-    RIGHT_ASSOCIATIVE = {"not"}
+    RIGHT_ASSOCIATIVE: set[str] = {"not"}
 
-    def __init__(self):
-        self.tokens = []
-        self.position = 0
+    def __init__(self) -> None:
+        self.tokens: List[str] = []
+        self.position: int = 0
 
-    def parse(self, expression: List[str]) -> List[Union[Tuple[str, str, str], str]]:
+    def parse(self, expression: List[str]) -> List[RPNItem]:
         """Parse an infix expression into RPN using the Shunting-yard algorithm.
 
         Args:
@@ -47,8 +52,8 @@ class FilterParser:
         self.tokens = expression
         self.position = 0
 
-        output_queue = []
-        operator_stack = []
+        output_queue: List[RPNItem] = []
+        operator_stack: List[str] = []
 
         while self.position < len(self.tokens):
             token = self._current_token()
@@ -78,7 +83,7 @@ class FilterParser:
             op = operator_stack.pop()
             if op in ("(", ")"):
                 raise FilterError("Mismatched parentheses")
-            output_queue.append(op)
+            output_queue.append(op)  # type: ignore[arg-type]
 
         return output_queue
 
@@ -92,8 +97,8 @@ class FilterParser:
         return self.tokens[pos] if pos < len(self.tokens) else ""
 
     def _handle_operator(
-        self, token: str, operator_stack: List[str], output_queue: List[Any]
-    ):
+        self, token: str, operator_stack: List[str], output_queue: List[RPNItem]
+    ) -> None:
         """Handle operator according to Shunting-yard algorithm."""
         while (
             operator_stack
@@ -107,20 +112,20 @@ class FilterParser:
                 )
             )
         ):
-            output_queue.append(operator_stack.pop())
+            output_queue.append(operator_stack.pop())  # type: ignore[arg-type]
         operator_stack.append(token)
 
-    def _handle_closing_paren(self, operator_stack: List[str], output_queue: List[Any]):
+    def _handle_closing_paren(self, operator_stack: List[str], output_queue: List[RPNItem]) -> None:
         """Handle closing parenthesis."""
         while operator_stack and operator_stack[-1] != "(":
-            output_queue.append(operator_stack.pop())
+            output_queue.append(operator_stack.pop())  # type: ignore[arg-type]
 
         if not operator_stack:
             raise FilterError("Mismatched parentheses")
 
         operator_stack.pop()  # Remove the '('
 
-    def _parse_primitive(self) -> Union[Tuple[str, str, str], None]:
+    def _parse_primitive(self) -> Optional[FilterPrimitive]:
         """Parse a filter primitive from current position.
 
         Returns:
@@ -220,7 +225,7 @@ class FilterEvaluator:
 
     def evaluate_rpn(
         self,
-        rpn_stack: List[Union[Tuple[str, str, str], str]],
+        rpn_stack: List[RPNItem],
         packet: Dict[str, Any],
         interface: Any = None,
     ) -> bool:
@@ -240,7 +245,7 @@ class FilterEvaluator:
         if not rpn_stack:
             return True  # Empty filter matches everything
 
-        eval_stack = []
+        eval_stack: List[bool] = []
 
         for item in rpn_stack:
             if isinstance(item, tuple):
@@ -276,7 +281,7 @@ class FilterEvaluator:
 
     def _evaluate_primitive(
         self,
-        primitive: Tuple[str, str, str],
+        primitive: FilterPrimitive,
         packet: Dict[str, Any],
         interface: Any = None,
     ) -> bool:
@@ -360,7 +365,7 @@ class FilterEvaluator:
                 "short_name", ""
             )
 
-            return long_name == value or short_name == value
+            return bool(long_name == value or short_name == value)
 
         if field == "src":
             return check_user_match(from_id)
@@ -387,7 +392,7 @@ class FilterEvaluator:
         }
 
         expected_port = port_mapping.get(value.lower(), value)
-        return portnum == expected_port
+        return bool(portnum == expected_port)
 
     def _eval_hop_limit(self, op: str, value: str, packet: Dict[str, Any]) -> bool:
         """Evaluate hop_limit primitive."""
@@ -396,7 +401,7 @@ class FilterEvaluator:
         except ValueError:
             raise FilterError(f"Invalid hop_limit value: {value}")
 
-        hop_limit = packet.get("hopLimit", 0)
+        hop_limit = int(packet.get("hopLimit", 0))
 
         if op == "<":
             return hop_limit < target_value
@@ -410,16 +415,16 @@ class FilterEvaluator:
     def _eval_priority(self, value: str, packet: Dict[str, Any]) -> bool:
         """Evaluate priority primitive."""
         priority = packet.get("priority", "UNSET")
-        return priority == value.upper()
+        return bool(priority == value.upper())
 
     def _eval_want_ack(self, packet: Dict[str, Any]) -> bool:
         """Evaluate want_ack primitive."""
-        return packet.get("wantAck", False)
+        return bool(packet.get("wantAck", False))
 
     def _eval_encryption(self, value: str, packet: Dict[str, Any]) -> bool:
         """Evaluate encryption status primitive."""
-        has_decoded = "decoded" in packet and packet["decoded"]
-        has_encrypted = "encrypted" in packet and packet["encrypted"]
+        has_decoded = "decoded" in packet and bool(packet["decoded"])
+        has_encrypted = "encrypted" in packet and bool(packet["encrypted"])
 
         if value == "encrypted":
             return has_encrypted and not has_decoded
@@ -430,7 +435,7 @@ class FilterEvaluator:
 
 
 # Convenience functions for main module
-def parse_filter(expression: List[str]) -> List[Union[Tuple[str, str, str], str]]:
+def parse_filter(expression: List[str]) -> List[RPNItem]:
     """Parse a filter expression into RPN format.
 
     Args:
@@ -447,7 +452,7 @@ def parse_filter(expression: List[str]) -> List[Union[Tuple[str, str, str], str]
 
 
 def evaluate_filter(
-    rpn_stack: List[Union[Tuple[str, str, str], str]],
+    rpn_stack: List[RPNItem],
     packet: Dict[str, Any],
     interface: Any = None,
 ) -> bool:
