@@ -3,6 +3,7 @@ import sys
 import time
 import pickle
 import logging
+import threading
 from datetime import datetime, timezone
 import meshtastic.serial_interface
 import meshtastic.tcp_interface
@@ -34,6 +35,8 @@ class MeshCap:
         self.node_book: NodeBook | None = None
         # Initialize payload formatter
         self.payload_formatter = PayloadFormatter()
+        # Thread synchronization lock for shared state
+        self._lock = threading.Lock()
 
     def _format_hop_info(self, packet: dict) -> str:
         """Format hop information from a packet.
@@ -126,25 +129,29 @@ class MeshCap:
                 logger.warning(f"Filter evaluation error: {e}")
                 return
 
-        # Write packet to file if writer is enabled
-        if self.write_file_handle:
-            logger.debug(f"Writing packet to file: {type(packet)}")
-            pickle.dump(packet, self.write_file_handle)
+        # Write packet to file if writer is enabled (synchronized access)
+        with self._lock:
+            if self.write_file_handle:
+                logger.debug(f"Writing packet to file: {type(packet)}")
+                pickle.dump(packet, self.write_file_handle)
 
-        # Format and print the packet
+        # Format and print the packet (outside lock to minimize lock time)
         formatted = self._format_packet(packet, interface, no_resolve, verbose)
         print(formatted)
 
-        # Increment packet counter (only for matching packets)
-        self.packet_count += 1
+        # Update shared state under lock
+        with self._lock:
+            # Increment packet counter (only for matching packets)
+            self.packet_count += 1
+            current_count = self.packet_count
 
-        # Check if we've reached the target count
-        if self.target_count and self.packet_count >= self.target_count:
-            print(f"\nProcessed {self.packet_count} matching packets. Exiting...")
-            if self.write_file_handle:
-                self.write_file_handle.close()
-                self.write_file_handle = None
-            self.should_exit = True
+            # Check if we've reached the target count
+            if self.target_count and current_count >= self.target_count:
+                print(f"\nProcessed {current_count} matching packets. Exiting...")
+                if self.write_file_handle:
+                    self.write_file_handle.close()
+                    self.write_file_handle = None
+                self.should_exit = True
 
     def _read_packets_from_file(self, filename, no_resolve, verbose=False):
         """Read pickled packets from a file and process them.
@@ -199,7 +206,8 @@ class MeshCap:
         if self.args.write_file:
             try:
                 logger.info(f"Opening write file: {self.args.write_file}")
-                self.write_file_handle = open(self.args.write_file, "wb")
+                with self._lock:
+                    self.write_file_handle = open(self.args.write_file, "wb")
                 print(f"Writing packets to {self.args.write_file}")
             except Exception as e:
                 logger.error(f"Could not open write file '{self.args.write_file}': {e}")
@@ -224,8 +232,10 @@ class MeshCap:
         # Handle test mode after subscription setup
         if self.args.test_mode:
             print("Test mode: Setup complete, exiting after subscription")
-            if self.write_file_handle:
-                self.write_file_handle.close()
+            with self._lock:
+                if self.write_file_handle:
+                    self.write_file_handle.close()
+                    self.write_file_handle = None
             return
 
         count_msg = (
@@ -235,14 +245,20 @@ class MeshCap:
         )
         print(f"Listening for packets{count_msg}... Press Ctrl+C to exit")
         try:
-            while not self.should_exit:
+            while True:
+                with self._lock:
+                    should_exit = self.should_exit
+                if should_exit:
+                    break
                 time.sleep(constants.SLEEP_INTERVAL)
         except KeyboardInterrupt:
             print("\nExiting...")
         finally:
             interface.close()
-            if self.write_file_handle:
-                self.write_file_handle.close()
+            with self._lock:
+                if self.write_file_handle:
+                    self.write_file_handle.close()
+                    self.write_file_handle = None
 
     def _connect_to_interface(self):
         """Connect to a Meshtastic device via serial or TCP interface.
