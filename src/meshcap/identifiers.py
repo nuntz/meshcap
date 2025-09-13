@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, Union
 
 
 @dataclass(frozen=True)
@@ -27,7 +27,7 @@ class NodeLabel:
         return self.user_id
 
 
-def to_node_num(value: int | str) -> int:
+def to_node_num(value: Union[int, str]) -> int:
     """
     Convert Meshtastic node identifier to canonical uint32 integer format.
 
@@ -86,11 +86,11 @@ def to_user_id(node_num: int) -> str:
 class NodeBook:
     """Cache for NodeLabel objects keyed by node number."""
 
-    def __init__(self, interface: Optional[Any] = None):
-        self.interface = interface
+    def __init__(self, interface: Optional[Any] = None) -> None:
+        self.interface: Optional[Any] = interface
         self._cache: Dict[int, NodeLabel] = {}
 
-    def get(self, node: int | str) -> NodeLabel:
+    def get(self, node: Union[int, str]) -> NodeLabel:
         """
         Get NodeLabel for given node, using cache when available.
 
