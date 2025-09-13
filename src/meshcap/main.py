@@ -354,19 +354,31 @@ class MeshCap:
         else:
             raise ValueError(f"Unknown label_mode: {label_mode}")
 
-    def _format_packet(self, packet, interface, no_resolve, verbose=False):
-        """Format a packet dictionary into a display string."""
+    def _format_timestamp(self, packet: dict) -> str:
+        """Format the timestamp from a packet.
 
-        # Local timestamp (YYYY-MM-DD HH:MM:SS)
+        Args:
+            packet: The packet dictionary containing rxTime
+
+        Returns:
+            str: Formatted timestamp string in YYYY-MM-DD HH:MM:SS format
+        """
         timestamp = (
             datetime.fromtimestamp(packet.get("rxTime", 0), timezone.utc)
             .astimezone()
             .strftime("%Y-%m-%d %H:%M:%S")
         )
+        return f"[{timestamp}]"
 
-        channel_hash = str(packet.get("channel", 0))
+    def _format_signal_strength(self, packet: dict) -> str:
+        """Format signal strength information from a packet.
 
-        # Signal: prefer rxRssi, then rssi; include SNR if present
+        Args:
+            packet: The packet dictionary containing signal strength data
+
+        Returns:
+            str: Formatted signal strength string (rssi/snr or '-')
+        """
         rssi = packet.get("rxRssi", packet.get("rssi"))
         snr = packet.get("rxSnr")
         signal_parts = []
@@ -374,18 +386,39 @@ class MeshCap:
             signal_parts.append(f"{rssi}dBm")
         if snr is not None:
             signal_parts.append(f"{snr}dB")
-        signal = "/".join(signal_parts) if signal_parts else "-"
+        return "/".join(signal_parts) if signal_parts else "-"
 
-        # Hop + flags
-        hop_info = self._format_hop_info(
-            packet
-        )  # expected to return "" or a ready chunk
-        flags_string = self._format_flags(
-            packet
-        )  # expected to return "" or like " [A]"
+    def _format_address_fields(self, packet: dict, interface, no_resolve: bool) -> str:
+        """Format from/to address fields from a packet.
 
-        # Optional next-hop label/hex
-        next_hop_info = ""
+        Args:
+            packet: The packet dictionary containing address information
+            interface: The Meshtastic interface object for node lookups
+            no_resolve: If True, skip node name resolution
+
+        Returns:
+            str: Formatted address string with from and to fields
+        """
+
+        def _label_or_unknown(tag):
+            uid = packet.get(f"{tag}Id") or packet.get(tag)
+            if not uid:
+                return f"{tag}:unknown"
+            return f"{tag}:{self.format_node_label(interface, uid, label_mode=self.args.label_mode, no_resolve=no_resolve)}"
+
+        return f"{_label_or_unknown('from')} {_label_or_unknown('to')}"
+
+    def _format_next_hop(self, packet: dict, interface, no_resolve: bool) -> str:
+        """Format next hop information from a packet.
+
+        Args:
+            packet: The packet dictionary containing next hop data
+            interface: The Meshtastic interface object for node lookups
+            no_resolve: If True, skip node name resolution
+
+        Returns:
+            str: Formatted next hop string or empty string if no next hop
+        """
         nh = packet.get("nextHop") or packet.get("next_hop")
         if isinstance(nh, int) and nh != 0:
             label = None
@@ -404,33 +437,49 @@ class MeshCap:
                         label_mode=self.args.label_mode,
                         no_resolve=False,
                     )
-            next_hop_info = f"NH:{label or f'0x{nh:02x}'}"
+            return f"NH:{label or f'0x{nh:02x}'}"
+        return ""
 
-        # From/To labels (or "unknown")
-        def _label_or_unknown(tag):
-            uid = packet.get(f"{tag}Id") or packet.get(tag)
-            if not uid:
-                return f"{tag}:unknown"
-            return f"{tag}:{self.format_node_label(interface, uid, label_mode=self.args.label_mode, no_resolve=no_resolve)}"
+    def _format_payload(self, packet: dict, verbose: bool) -> tuple[str, str]:
+        """Format payload information from a packet.
 
-        address_str = f"{_label_or_unknown('from')} {_label_or_unknown('to')}"
+        Args:
+            packet: The packet dictionary containing payload data
+            verbose: If True, include JSON payload details
 
-        # Only tag encrypted length if there's no decoded payload; otherwise let payload_formatter handle details
+        Returns:
+            tuple[str, str]: A tuple of (packet_tag, json_payload)
+        """
         decoded = packet.get("decoded") or {}
         packet_tag = ""
         if not decoded:
             enc = packet.get("encrypted", "")
             packet_tag = f"encrypted:len={len(enc)}" if enc is not None else ""
 
-        # Extra, formatter-defined suffix
         extra = self.payload_formatter.format(packet)
-
         json_payload = str(decoded) if verbose else None
+
+        return packet_tag, extra, json_payload
+
+    def _format_packet(self, packet, interface, no_resolve, verbose=False):
+        """Format a packet dictionary into a display string."""
+        timestamp = self._format_timestamp(packet)
+        channel_hash = f"Ch:{str(packet.get('channel', 0))}"
+        signal = self._format_signal_strength(packet)
+
+        # Hop + flags
+        hop_info = self._format_hop_info(packet)
+        flags_string = self._format_flags(packet)
+
+        next_hop_info = self._format_next_hop(packet, interface, no_resolve)
+        address_str = self._format_address_fields(packet, interface, no_resolve)
+
+        packet_tag, extra, json_payload = self._format_payload(packet, verbose)
 
         # Assemble compactly, skipping empties to avoid double spaces
         parts = [
-            f"[{timestamp}]",
-            f"Ch:{channel_hash}",
+            timestamp,
+            channel_hash,
             signal,
             hop_info,
             flags_string,
