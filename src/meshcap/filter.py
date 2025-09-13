@@ -4,10 +4,13 @@ This module implements a filter engine that allows filtering packets based on va
 using logical expressions with 'and', 'or', 'not', and parentheses for precedence.
 """
 
+import logging
 from typing import List, Union, Tuple, Any, Dict, Optional, Literal
 
 from meshcap.identifiers import to_node_num
 from . import constants
+
+logger = logging.getLogger(__name__)
 
 # Type aliases for clarity
 FilterPrimitive = Tuple[str, str, str]
@@ -47,8 +50,10 @@ class FilterParser:
             FilterError: If the expression is malformed
         """
         if not expression:
+            logger.debug("Empty filter expression")
             return []
 
+        logger.debug(f"Parsing filter expression: {expression}")
         self.tokens = expression
         self.position = 0
 
@@ -85,6 +90,7 @@ class FilterParser:
                 raise FilterError("Mismatched parentheses")
             output_queue.append(op)  # type: ignore[arg-type]
 
+        logger.debug(f"Parsed filter to RPN: {output_queue}")
         return output_queue
 
     def _current_token(self) -> str:
@@ -115,7 +121,9 @@ class FilterParser:
             output_queue.append(operator_stack.pop())  # type: ignore[arg-type]
         operator_stack.append(token)
 
-    def _handle_closing_paren(self, operator_stack: List[str], output_queue: List[RPNItem]) -> None:
+    def _handle_closing_paren(
+        self, operator_stack: List[str], output_queue: List[RPNItem]
+    ) -> None:
         """Handle closing parenthesis."""
         while operator_stack and operator_stack[-1] != "(":
             output_queue.append(operator_stack.pop())  # type: ignore[arg-type]
@@ -243,14 +251,19 @@ class FilterEvaluator:
             FilterError: If evaluation fails
         """
         if not rpn_stack:
+            logger.debug("Empty filter - matches everything")
             return True  # Empty filter matches everything
 
+        logger.debug(
+            f"Evaluating filter against packet: from={packet.get('fromId')}, to={packet.get('toId')}, port={packet.get('decoded', {}).get('portnum')}"
+        )
         eval_stack: List[bool] = []
 
         for item in rpn_stack:
             if isinstance(item, tuple):
                 # Primitive - evaluate and push result
                 result = self._evaluate_primitive(item, packet, interface)
+                logger.debug(f"Primitive {item} evaluated to {result}")
                 eval_stack.append(result)
             elif item == "and":
                 if len(eval_stack) < 2:
@@ -277,7 +290,9 @@ class FilterEvaluator:
                 "Invalid expression - evaluation stack should contain exactly one result"
             )
 
-        return eval_stack[0]
+        result = eval_stack[0]
+        logger.debug(f"Filter evaluation result: {result}")
+        return result
 
     def _evaluate_primitive(
         self,

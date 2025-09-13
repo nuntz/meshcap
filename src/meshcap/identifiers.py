@@ -1,5 +1,8 @@
+import logging
 from dataclasses import dataclass
 from typing import Dict, Optional, Any, Union
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -51,7 +54,9 @@ def to_node_num(value: Union[int, str]) -> int:
         ValueError: If string format is invalid hex
     """
     if isinstance(value, int):
-        return value & 0xFFFFFFFF
+        result = value & 0xFFFFFFFF
+        logger.debug(f"Converted int {value} to node_num {result:08x}")
+        return result
 
     if isinstance(value, str):
         # Strip whitespace and remove leading '!' if present
@@ -61,11 +66,18 @@ def to_node_num(value: Union[int, str]) -> int:
 
         # Handle special broadcast addresses
         if cleaned.lower() in ("0000^all", "^all"):
+            logger.debug(f"Converted broadcast address '{value}' to 0xFFFFFFFF")
             return 0xFFFFFFFF  # Broadcast address
 
         # Convert to lowercase, zero-fill to 8 characters, parse as hex
         hex_str = cleaned.lower().zfill(8)
-        return int(hex_str, 16)
+        try:
+            result = int(hex_str, 16)
+            logger.debug(f"Converted string '{value}' to node_num {result:08x}")
+            return result
+        except ValueError as e:
+            logger.error(f"Failed to convert string '{value}' to node_num: {e}")
+            raise
 
     raise TypeError(f"Expected int or str, got {type(value)}")
 
@@ -103,7 +115,10 @@ class NodeBook:
         node_num = to_node_num(node)
 
         if node_num in self._cache:
+            logger.debug(f"Cache hit for node {node_num:08x}")
             return self._cache[node_num]
+
+        logger.debug(f"Cache miss for node {node_num:08x}, resolving node info")
 
         user_id = to_user_id(node_num)
         long_name = None
@@ -115,6 +130,7 @@ class NodeBook:
                 # Try to find node using user_id format
                 node_data = self.interface.nodes.get(user_id)
                 if node_data:
+                    logger.debug(f"Found node data for {user_id} in interface")
                     # Get user data with fallback for different schema versions
                     user = node_data.get("user") or node_data.get("userInfo") or {}
                     # Try different field name variations
@@ -124,8 +140,14 @@ class NodeBook:
                         short_name = user["shortName"]
                     elif "short_name" in user:
                         short_name = user["short_name"]
-            except (AttributeError, TypeError):
+                    logger.debug(
+                        f"Resolved node {user_id}: long_name={long_name}, short_name={short_name}"
+                    )
+                else:
+                    logger.debug(f"No node data found for {user_id} in interface")
+            except (AttributeError, TypeError) as e:
                 # Interface.nodes is not accessible or not a dict
+                logger.warning(f"Could not access interface nodes for {user_id}: {e}")
                 pass
 
         node_label = NodeLabel(
@@ -135,5 +157,6 @@ class NodeBook:
             short_name=short_name,
         )
 
+        logger.debug(f"Caching node label for {node_num:08x}: {node_label.best()}")
         self._cache[node_num] = node_label
         return node_label

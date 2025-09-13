@@ -12,6 +12,8 @@ from .payload_formatter import PayloadFormatter
 from .identifiers import to_node_num, to_user_id, NodeBook
 from . import constants
 
+logger = logging.getLogger(__name__)
+
 
 class MeshCap:
     """Main class for the Meshtastic packet capture application."""
@@ -118,13 +120,15 @@ class MeshCap:
         if self.filter_rpn:
             try:
                 if not evaluate_filter(self.filter_rpn, packet, interface):
+                    logger.debug("Packet filtered out by filter expression")
                     return  # Packet doesn't match filter, skip processing
             except FilterError as e:
-                logging.warning(f"Filter evaluation error: {e}")
+                logger.warning(f"Filter evaluation error: {e}")
                 return
 
         # Write packet to file if writer is enabled
         if self.write_file_handle:
+            logger.debug(f"Writing packet to file: {type(packet)}")
             pickle.dump(packet, self.write_file_handle)
 
         # Format and print the packet
@@ -150,6 +154,7 @@ class MeshCap:
             no_resolve (bool): If True, skip node name resolution
             verbose (bool): If True, show JSON details for unknown packet types
         """
+        logger.info(f"Reading packets from file: {filename}")
         try:
             with open(filename, "rb") as f:
                 while True:
@@ -157,11 +162,14 @@ class MeshCap:
                         packet = pickle.load(f)
                         self._on_packet_received(packet, None, no_resolve, verbose)
                     except EOFError:
+                        logger.debug("Reached end of file")
                         break
         except FileNotFoundError:
+            logger.error(f"File not found: {filename}")
             print(f"Error: File '{filename}' not found", file=sys.stderr)
             sys.exit(1)
         except Exception as e:
+            logger.error(f"Error reading from file '{filename}': {e}")
             print(f"Error reading from file '{filename}': {e}", file=sys.stderr)
             sys.exit(1)
 
@@ -170,9 +178,11 @@ class MeshCap:
         # Parse filter expression if provided
         if self.args.filter:
             try:
+                logger.info(f"Parsing filter expression: {' '.join(self.args.filter)}")
                 self.filter_rpn = parse_filter(self.args.filter)
                 print(f"Using filter: {' '.join(self.args.filter)}")
             except FilterError as e:
+                logger.error(f"Invalid filter expression: {e}")
                 print(f"Error: Invalid filter expression: {e}", file=sys.stderr)
                 sys.exit(1)
 
@@ -188,9 +198,11 @@ class MeshCap:
         # Open write file if specified
         if self.args.write_file:
             try:
+                logger.info(f"Opening write file: {self.args.write_file}")
                 self.write_file_handle = open(self.args.write_file, "wb")
                 print(f"Writing packets to {self.args.write_file}")
             except Exception as e:
+                logger.error(f"Could not open write file '{self.args.write_file}': {e}")
                 print(
                     f"Error: Could not open write file '{self.args.write_file}': {e}",
                     file=sys.stderr,
@@ -244,18 +256,29 @@ class MeshCap:
         try:
             if self.args.host:
                 # TCP connection
+                logger.info(
+                    f"Attempting TCP connection to {self.args.host}:{self.args.tcp_port}"
+                )
                 interface = meshtastic.tcp_interface.TCPInterface(
                     hostname=self.args.host, portNumber=self.args.tcp_port
+                )
+                logger.info(
+                    f"TCP connection established to {self.args.host}:{self.args.tcp_port}"
                 )
                 print(
                     f"Successfully connected to device at {self.args.host}:{self.args.tcp_port}"
                 )
             else:
                 # Serial connection
+                logger.info(f"Attempting serial connection to {self.args.port}")
                 interface = meshtastic.serial_interface.SerialInterface(self.args.port)
+                logger.info(f"Serial connection established to {self.args.port}")
                 print(f"Successfully connected to device at {self.args.port}")
             return interface
         except ConnectionRefusedError as e:
+            logger.error(
+                f"TCP connection refused to {self.args.host}:{self.args.tcp_port}: {e}"
+            )
             print(
                 f"Error: TCP connection refused to {self.args.host}:{self.args.tcp_port}: {e}",
                 file=sys.stderr,
@@ -267,6 +290,7 @@ class MeshCap:
                 if self.args.host
                 else self.args.port
             )
+            logger.error(f"Connection to device at {connection_type} failed: {e}")
             print(
                 f"Error: Connection to device at {connection_type} failed: {e}",
                 file=sys.stderr,
@@ -404,11 +428,6 @@ class MeshCap:
 
 
 def main():
-    # Configure logging
-    logging.basicConfig(
-        level=logging.WARNING, format="%(levelname)s: %(message)s", stream=sys.stderr
-    )
-
     parser = argparse.ArgumentParser(description="Meshtastic network dump tool")
 
     # Create mutually exclusive group for connection arguments
@@ -470,10 +489,24 @@ def main():
         help="Node label display mode (default: named-with-hex, auto=named-with-hex)",
     )
     parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="WARNING",
+        help="Set logging level (default: WARNING)",
+    )
+    parser.add_argument(
         "filter", nargs="*", help="Filter expression (e.g., 'src node A and port text')"
     )
 
     args = parser.parse_args()
+
+    # Configure logging based on command line argument
+    log_level = getattr(logging, args.log_level.upper())
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        stream=sys.stderr,
+    )
 
     # Handle alias mapping: auto -> named-with-hex
     if args.label_mode == "auto":

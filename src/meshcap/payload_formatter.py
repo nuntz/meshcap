@@ -6,9 +6,12 @@ apply special formatting rules to packet payloads based on their `portnum`.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Callable
 
 from . import constants
+
+logger = logging.getLogger(__name__)
 
 
 class PayloadFormatter:
@@ -34,11 +37,15 @@ class PayloadFormatter:
         """
         decoded = packet.get("decoded")
         if not isinstance(decoded, dict):
+            logger.debug("No decoded payload in packet")
             return ""
 
         portnum = decoded.get("portnum")
         if not portnum:
+            logger.debug("No portnum in decoded payload")
             return ""
+
+        logger.debug(f"Formatting payload for portnum: {portnum}")
 
         # Build dispatch map. Keys cover current string-based portnums.
         dispatch: dict[str, Callable[[dict[str, Any]], str]] = {
@@ -50,8 +57,12 @@ class PayloadFormatter:
 
         handler = dispatch.get(portnum)
         if handler is None:
+            logger.debug(f"No formatter available for portnum: {portnum}")
             return "[unformatted]"
-        return handler(decoded)
+
+        result = handler(decoded)
+        logger.debug(f"Formatted {portnum} payload: {result}")
+        return result
 
     def _format_text(self, decoded: dict[str, Any]) -> str:
         text = decoded.get("text", "")
@@ -66,15 +77,18 @@ class PayloadFormatter:
             alt = 0
         try:
             lat_f = float(lat)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as e:
+            logger.warning(f"Could not convert latitude {lat} to float: {e}")
             lat_f = 0.0
         try:
             lon_f = float(lon)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as e:
+            logger.warning(f"Could not convert longitude {lon} to float: {e}")
             lon_f = 0.0
         try:
             alt_i = int(alt)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as e:
+            logger.warning(f"Could not convert altitude {alt} to int: {e}")
             alt_i = 0
         return f"pos:{lat_f:.{constants.POSITION_PRECISION}f},{lon_f:.{constants.POSITION_PRECISION}f} {alt_i}m"
 
@@ -114,7 +128,8 @@ class PayloadFormatter:
             try:
                 bat_val = int(float(bat_raw))
                 bat_str = f"{bat_val}%"
-            except (TypeError, ValueError):
+            except (TypeError, ValueError) as e:
+                logger.warning(f"Could not convert battery level {bat_raw} to int: {e}")
                 bat_str = ""
 
         volt_str = ""
@@ -122,7 +137,8 @@ class PayloadFormatter:
             try:
                 volt_val = float(volt_raw)
                 volt_str = f"{volt_val:.{constants.VOLTAGE_PRECISION}f}V"
-            except (TypeError, ValueError):
+            except (TypeError, ValueError) as e:
+                logger.warning(f"Could not convert voltage {volt_raw} to float: {e}")
                 volt_str = ""
 
         parts: list[str] = []
@@ -138,7 +154,10 @@ class PayloadFormatter:
             try:
                 temp_val = float(temp_raw)
                 parts.append(f"temp={temp_val:.{constants.TEMPERATURE_PRECISION}f}°C")
-            except (TypeError, ValueError):
+            except (TypeError, ValueError) as e:
+                logger.warning(
+                    f"Could not convert temperature {temp_raw} to float: {e}"
+                )
                 pass
 
         suffix = " ".join(parts)
