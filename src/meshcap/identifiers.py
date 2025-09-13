@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict, Optional, Any, Union
+from typing import Optional, Any, Union
+from collections import OrderedDict
 
 logger = logging.getLogger(__name__)
 
@@ -95,12 +96,30 @@ def to_user_id(node_num: int) -> str:
     return f"!{node_num & 0xFFFFFFFF:08x}"
 
 
-class NodeBook:
-    """Cache for NodeLabel objects keyed by node number."""
+@dataclass
+class CacheStats:
+    """Statistics for the NodeBook LRU cache."""
+    hits: int = 0
+    misses: int = 0
+    evictions: int = 0
+    current_size: int = 0
+    max_size: int = 0
 
-    def __init__(self, interface: Optional[Any] = None) -> None:
+    @property
+    def hit_rate(self) -> float:
+        """Calculate cache hit rate as a percentage."""
+        total = self.hits + self.misses
+        return (self.hits / total * 100) if total > 0 else 0.0
+
+
+class NodeBook:
+    """Cache for NodeLabel objects keyed by node number with LRU eviction."""
+
+    def __init__(self, interface: Optional[Any] = None, max_cache_size: int = 1000) -> None:
         self.interface: Optional[Any] = interface
-        self._cache: Dict[int, NodeLabel] = {}
+        self._cache: OrderedDict[int, NodeLabel] = OrderedDict()
+        self._max_cache_size: int = max_cache_size
+        self._stats: CacheStats = CacheStats(max_size=max_cache_size)
 
     def get(self, node: Union[int, str]) -> NodeLabel:
         """
@@ -116,9 +135,13 @@ class NodeBook:
 
         if node_num in self._cache:
             logger.debug(f"Cache hit for node {node_num:08x}")
+            # Move to end (most recently used)
+            self._cache.move_to_end(node_num)
+            self._stats.hits += 1
             return self._cache[node_num]
 
         logger.debug(f"Cache miss for node {node_num:08x}, resolving node info")
+        self._stats.misses += 1
 
         user_id = to_user_id(node_num)
         long_name = None
@@ -158,5 +181,28 @@ class NodeBook:
         )
 
         logger.debug(f"Caching node label for {node_num:08x}: {node_label.best()}")
+        
+        # Check if we need to evict entries to stay within size limit
+        while len(self._cache) >= self._max_cache_size:
+            evicted_node_num, evicted_label = self._cache.popitem(last=False)
+            self._stats.evictions += 1
+            logger.debug(f"Cache evicted node {evicted_node_num:08x}: {evicted_label.best()}")
+        
         self._cache[node_num] = node_label
+        self._stats.current_size = len(self._cache)
         return node_label
+
+    def get_cache_stats(self) -> CacheStats:
+        """
+        Get current cache statistics.
+
+        Returns:
+            CacheStats object containing hit/miss counts, evictions, and size info
+        """
+        self._stats.current_size = len(self._cache)
+        return self._stats
+
+    def clear_cache(self) -> None:
+        """Clear all cached entries and reset statistics."""
+        self._cache.clear()
+        self._stats = CacheStats(max_size=self._max_cache_size)

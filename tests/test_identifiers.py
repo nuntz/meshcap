@@ -1,5 +1,5 @@
 import pytest
-from meshcap.identifiers import NodeLabel, to_node_num, to_user_id
+from meshcap.identifiers import NodeLabel, to_node_num, to_user_id, NodeBook, CacheStats
 
 
 class TestToNodeNum:
@@ -185,3 +185,193 @@ class TestNodeLabel:
         label = NodeLabel(node_num=123456, user_id="!0001e240")
         with pytest.raises(AttributeError):
             label.node_num = 789
+
+
+class TestCacheStats:
+    """Test CacheStats dataclass."""
+
+    def test_default_values(self):
+        """Test that CacheStats has reasonable defaults."""
+        stats = CacheStats()
+        assert stats.hits == 0
+        assert stats.misses == 0
+        assert stats.evictions == 0
+        assert stats.current_size == 0
+        assert stats.max_size == 0
+
+    def test_hit_rate_calculation(self):
+        """Test hit rate calculation."""
+        stats = CacheStats(hits=75, misses=25)
+        assert stats.hit_rate == 75.0
+
+        stats = CacheStats(hits=0, misses=10)
+        assert stats.hit_rate == 0.0
+
+        stats = CacheStats(hits=10, misses=0)
+        assert stats.hit_rate == 100.0
+
+    def test_hit_rate_no_data(self):
+        """Test hit rate when no hits or misses recorded."""
+        stats = CacheStats()
+        assert stats.hit_rate == 0.0
+
+
+class TestNodeBook:
+    """Test NodeBook LRU cache functionality."""
+
+    def test_initialization(self):
+        """Test NodeBook initialization with default and custom cache sizes."""
+        # Default cache size
+        book = NodeBook()
+        assert book._max_cache_size == 1000
+        assert len(book._cache) == 0
+        
+        # Custom cache size
+        book = NodeBook(max_cache_size=500)
+        assert book._max_cache_size == 500
+        assert len(book._cache) == 0
+
+    def test_basic_cache_functionality(self):
+        """Test basic cache hit/miss functionality."""
+        book = NodeBook(max_cache_size=10)
+        
+        # First access should be a miss
+        label1 = book.get(123456)
+        assert label1.node_num == 123456
+        assert label1.user_id == "!0001e240"
+        
+        stats = book.get_cache_stats()
+        assert stats.hits == 0
+        assert stats.misses == 1
+        assert stats.current_size == 1
+        
+        # Second access should be a hit
+        label2 = book.get(123456)
+        assert label1 == label2
+        
+        stats = book.get_cache_stats()
+        assert stats.hits == 1
+        assert stats.misses == 1
+        assert stats.current_size == 1
+
+    def test_cache_size_limit_respected(self):
+        """Test that cache size limit is respected with eviction."""
+        book = NodeBook(max_cache_size=3)
+        
+        # Fill cache to capacity
+        book.get(1)
+        book.get(2)
+        book.get(3)
+        
+        stats = book.get_cache_stats()
+        assert stats.current_size == 3
+        assert stats.evictions == 0
+        
+        # Add one more item, should cause eviction
+        book.get(4)
+        
+        stats = book.get_cache_stats()
+        assert stats.current_size == 3  # Still at max capacity
+        assert stats.evictions == 1  # One eviction occurred
+        
+        # The first item (1) should have been evicted (LRU)
+        # Accessing it should be a cache miss
+        initial_misses = stats.misses
+        book.get(1)
+        stats = book.get_cache_stats()
+        assert stats.misses == initial_misses + 1
+
+    def test_lru_eviction_order(self):
+        """Test that LRU eviction works correctly."""
+        book = NodeBook(max_cache_size=2)
+        
+        # Fill cache
+        book.get(1)
+        book.get(2)
+        
+        # Access first item to make it most recently used
+        book.get(1)
+        
+        # Add third item, should evict item 2 (least recently used)
+        book.get(3)
+        
+        stats = book.get_cache_stats()
+        assert stats.evictions == 1
+        assert stats.current_size == 2
+        
+        # Item 1 should still be in cache (was accessed recently)
+        initial_hits = stats.hits
+        book.get(1)
+        stats = book.get_cache_stats()
+        assert stats.hits == initial_hits + 1
+        
+        # Item 2 should have been evicted (cache miss)
+        initial_misses = stats.misses
+        book.get(2)
+        stats = book.get_cache_stats()
+        assert stats.misses == initial_misses + 1
+
+    def test_cache_statistics_accuracy(self):
+        """Test that cache statistics are accurately maintained."""
+        book = NodeBook(max_cache_size=5)
+        
+        # Generate some cache activity
+        for i in range(10):  # Will cause evictions
+            book.get(i)
+        
+        stats = book.get_cache_stats()
+        
+        # Should have had 5 evictions (cache size is 5, but we accessed 10 items)
+        assert stats.evictions == 5
+        assert stats.current_size == 5
+        assert stats.misses == 10  # All first accesses were misses
+        assert stats.hits == 0  # No repeated accesses yet
+        
+        # Access some items again to generate hits
+        book.get(9)  # Should be a hit
+        book.get(8)  # Should be a hit
+        
+        stats = book.get_cache_stats()
+        assert stats.hits == 2
+        assert stats.misses == 10
+
+    def test_clear_cache(self):
+        """Test cache clearing functionality."""
+        book = NodeBook(max_cache_size=5)
+        
+        # Fill cache and generate some activity
+        for i in range(3):
+            book.get(i)
+        book.get(0)  # Generate a hit
+        
+        stats = book.get_cache_stats()
+        assert stats.current_size == 3
+        assert stats.hits == 1
+        assert stats.misses == 3
+        
+        # Clear cache
+        book.clear_cache()
+        
+        stats = book.get_cache_stats()
+        assert stats.current_size == 0
+        assert stats.hits == 0
+        assert stats.misses == 0
+        assert stats.evictions == 0
+        assert stats.max_size == 5  # Should preserve max_size
+
+    def test_string_and_int_node_identifiers(self):
+        """Test that both string and int node identifiers work with cache."""
+        book = NodeBook(max_cache_size=5)
+        
+        # Access same node with different identifier formats
+        label1 = book.get(123456)
+        label2 = book.get("!0001e240")  # Same node as hex string
+        label3 = book.get("0001e240")   # Same node without !
+        
+        # All should return the same cached object
+        assert label1 == label2 == label3
+        
+        stats = book.get_cache_stats()
+        assert stats.hits == 2  # Second and third were cache hits
+        assert stats.misses == 1  # Only first was a miss
+        assert stats.current_size == 1  # Only one unique node cached
