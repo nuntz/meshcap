@@ -6,7 +6,7 @@ apply special formatting rules to packet payloads based on their `portnum`.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 from . import constants
 
@@ -30,9 +30,7 @@ class PayloadFormatter:
     def format(self, packet: dict[str, Any]) -> str:
         """Return a formatted payload string for the given packet.
 
-        Uses a dispatch table mapping `portnum` to private helpers. Supports
-        both Meshtastic string names (e.g., "TEXT_MESSAGE_APP") and, if provided
-        in the future, integer port numbers via normalization.
+        Uses a dispatch table mapping `portnum` to private helpers.
         """
         decoded = packet.get("decoded")
         if not isinstance(decoded, dict):
@@ -43,33 +41,17 @@ class PayloadFormatter:
             return ""
 
         # Build dispatch map. Keys cover current string-based portnums.
-        dispatch: Dict[Any, Callable[[dict[str, Any]], str]] = {
+        dispatch: dict[str, Callable[[dict[str, Any]], str]] = {
             constants.TEXT_MESSAGE_APP: self._format_text,
             constants.POSITION_APP: self._format_position,
             constants.NODEINFO_APP: self._format_nodeinfo,
             constants.TELEMETRY_APP: self._format_telemetry,
         }
 
-        # Normalize potential integer portnums to names when known.
-        # Note: We primarily see string names in this codebase/tests; this hook
-        # allows easy extension to integer enums without changing call sites.
-        normalized = self._normalize_portnum(portnum)
-        handler = dispatch.get(normalized) or dispatch.get(portnum)
+        handler = dispatch.get(portnum)
         if handler is None:
             return "[unformatted]"
         return handler(decoded)
-
-    def _normalize_portnum(self, value: Any) -> Any:
-        """Normalize a portnum to a known dispatch key.
-
-        - If value is an int and we know a mapping, return the name.
-        - Otherwise, return the original value.
-        """
-        # Placeholder for future integer-to-name mapping.
-        int_to_name: Dict[int, str] = {}
-        if isinstance(value, int):
-            return int_to_name.get(value, value)
-        return value
 
     def _format_text(self, decoded: dict[str, Any]) -> str:
         text = decoded.get("text", "")
