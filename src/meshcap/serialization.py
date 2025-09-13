@@ -10,6 +10,8 @@ import base64
 from datetime import datetime
 from typing import Any, Dict, IO, Union
 import logging
+from google.protobuf.json_format import MessageToDict
+from google.protobuf.message import Message
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,13 @@ class PacketSerializer:
             }
         elif isinstance(obj, datetime):
             return {"__type__": "datetime", "__value__": obj.isoformat()}
+        elif isinstance(obj, Message):
+            # Handle protobuf Message objects
+            return {
+                "__type__": "protobuf",
+                "__class__": obj.__class__.__name__,
+                "__value__": MessageToDict(obj, preserving_proto_field_name=True),
+            }
         elif isinstance(obj, dict):
             return {
                 k: PacketSerializer._encode_special_types(v) for k, v in obj.items()
@@ -76,6 +85,10 @@ class PacketSerializer:
                     return tuple(
                         PacketSerializer._decode_special_types(item) for item in value
                     )
+                elif type_name == "protobuf":
+                    # For protobuf objects, return the dictionary representation
+                    # The original protobuf class info is preserved in __class__ if needed
+                    return PacketSerializer._decode_special_types(value)
                 else:
                     logger.warning(f"Unknown special type encountered: {type_name}")
                     return obj

@@ -175,9 +175,9 @@ class MeshCap:
         
         # Check for pickle file and show deprecation warning
         if filename.lower().endswith('.pkl'):
-            print(f"\nWarning: Pickle files (.pkl) are deprecated due to security concerns.", file=sys.stderr)
+            print("\nWarning: Pickle files (.pkl) are deprecated due to security concerns.", file=sys.stderr)
             print(f"Consider converting to JSON format using: meshcap-migrate {filename}", file=sys.stderr)
-            print(f"Future versions may not support pickle files.\n", file=sys.stderr)
+            print("Future versions may not support pickle files.\n", file=sys.stderr)
         
         try:
             # Determine file mode based on format preference and file extension
@@ -243,7 +243,7 @@ class MeshCap:
                 print(f"Writing packets to {filename} in {format_msg} format")
                 
                 if not use_json:
-                    print(f"Warning: Writing in pickle format. Consider using JSON format (--format json) for better security.", file=sys.stderr)
+                    print("Warning: Writing in pickle format. Consider using JSON format (--format json) for better security.", file=sys.stderr)
             except Exception as e:
                 logger.error(f"Could not open write file '{self.args.write_file}': {e}")
                 print(
