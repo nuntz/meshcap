@@ -99,6 +99,7 @@ def to_user_id(node_num: int) -> str:
 @dataclass
 class CacheStats:
     """Statistics for the NodeBook LRU cache."""
+
     hits: int = 0
     misses: int = 0
     evictions: int = 0
@@ -115,7 +116,9 @@ class CacheStats:
 class NodeBook:
     """Cache for NodeLabel objects keyed by node number with LRU eviction."""
 
-    def __init__(self, interface: Optional[Any] = None, max_cache_size: int = 1000) -> None:
+    def __init__(
+        self, interface: Optional[Any] = None, max_cache_size: int = 1000
+    ) -> None:
         self.interface: Optional[Any] = interface
         self._cache: OrderedDict[int, NodeLabel] = OrderedDict()
         self._max_cache_size: int = max_cache_size
@@ -181,13 +184,15 @@ class NodeBook:
         )
 
         logger.debug(f"Caching node label for {node_num:08x}: {node_label.best()}")
-        
+
         # Check if we need to evict entries to stay within size limit
         while len(self._cache) >= self._max_cache_size:
             evicted_node_num, evicted_label = self._cache.popitem(last=False)
             self._stats.evictions += 1
-            logger.debug(f"Cache evicted node {evicted_node_num:08x}: {evicted_label.best()}")
-        
+            logger.debug(
+                f"Cache evicted node {evicted_node_num:08x}: {evicted_label.best()}"
+            )
+
         self._cache[node_num] = node_label
         self._stats.current_size = len(self._cache)
         return node_label

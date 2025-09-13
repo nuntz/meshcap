@@ -28,7 +28,7 @@ class TestLogging:
             packet = {
                 "fromId": "!12345678",
                 "toId": "!87654321",
-                "decoded": {"portnum": "TEXT_MESSAGE_APP"}
+                "decoded": {"portnum": "TEXT_MESSAGE_APP"},
             }
             result = evaluate_filter(rpn, packet)
             assert "Evaluating filter against packet" in caplog.text
@@ -59,26 +59,24 @@ class TestLogging:
             # Mock interface with nodes
             mock_interface = MagicMock()
             mock_interface.nodes = {
-                "!12345678": {
-                    "user": {
-                        "longName": "Test Node",
-                        "shortName": "TN"
-                    }
-                }
+                "!12345678": {"user": {"longName": "Test Node", "shortName": "TN"}}
             }
 
             book = NodeBook(mock_interface)
-            
+
             # First call should be cache miss
             label = book.get("!12345678")
             assert "Cache miss for node 12345678" in caplog.text
             assert "Found node data for !12345678 in interface" in caplog.text
-            assert "Resolved node !12345678: long_name=Test Node, short_name=TN" in caplog.text
+            assert (
+                "Resolved node !12345678: long_name=Test Node, short_name=TN"
+                in caplog.text
+            )
             assert "Caching node label for 12345678" in caplog.text
 
             # Clear log for second call
             caplog.clear()
-            
+
             # Second call should be cache hit
             label2 = book.get("!12345678")
             assert "Cache hit for node 12345678" in caplog.text
@@ -128,7 +126,7 @@ class TestLogging:
     def test_payload_formatter_logging(self, caplog):
         """Test PayloadFormatter logging."""
         formatter = PayloadFormatter()
-        
+
         with caplog.at_level(logging.DEBUG):
             # Test with no decoded payload
             packet = {}
@@ -156,7 +154,7 @@ class TestLogging:
     def test_payload_formatter_error_logging(self, caplog):
         """Test PayloadFormatter error logging for data conversion failures."""
         formatter = PayloadFormatter()
-        
+
         with caplog.at_level(logging.WARNING):
             # Test position with invalid data
             packet = {
@@ -165,8 +163,8 @@ class TestLogging:
                     "position": {
                         "latitude": "invalid",
                         "longitude": None,
-                        "altitude": "also_invalid"
-                    }
+                        "altitude": "also_invalid",
+                    },
                 }
             }
             result = formatter.format(packet)
@@ -182,12 +180,10 @@ class TestLogging:
                     "telemetry": {
                         "device_metrics": {
                             "battery_level": "invalid",
-                            "voltage": "bad_voltage"
+                            "voltage": "bad_voltage",
                         },
-                        "environment_metrics": {
-                            "temperature": "not_a_number"
-                        }
-                    }
+                        "environment_metrics": {"temperature": "not_a_number"},
+                    },
                 }
             }
             result = formatter.format(packet)
@@ -201,12 +197,12 @@ class TestLogging:
         log_buffer = io.StringIO()
         handler = logging.StreamHandler(log_buffer)
         handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-        
+
         # Get logger and add handler
         logger = logging.getLogger("meshcap.identifiers")
         logger.addHandler(handler)
         original_level = logger.level
-        
+
         try:
             # Test DEBUG level
             logger.setLevel(logging.DEBUG)
@@ -214,30 +210,30 @@ class TestLogging:
             logger.info("Info message")
             logger.warning("Warning message")
             logger.error("Error message")
-            
+
             output = log_buffer.getvalue()
             assert "DEBUG: Debug message" in output
             assert "INFO: Info message" in output
             assert "WARNING: Warning message" in output
             assert "ERROR: Error message" in output
-            
+
             # Reset buffer
             log_buffer.seek(0)
             log_buffer.truncate(0)
-            
+
             # Test WARNING level (should only show WARNING and ERROR)
             logger.setLevel(logging.WARNING)
             logger.debug("Debug message 2")
             logger.info("Info message 2")
             logger.warning("Warning message 2")
             logger.error("Error message 2")
-            
+
             output = log_buffer.getvalue()
             assert "Debug message 2" not in output
             assert "Info message 2" not in output
             assert "WARNING: Warning message 2" in output
             assert "ERROR: Error message 2" in output
-            
+
         finally:
             logger.removeHandler(handler)
             logger.setLevel(original_level)

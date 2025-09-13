@@ -51,15 +51,29 @@ uv run meshcap '(' src node A or dst node A ')' and port position
 
 ### File Operations
 
+#### Writing Packets to File
+
 ```bash
-# Write packets to file (serial connection)
-uv run meshcap --write-file packets.bin
+# Write packets to JSON file (recommended - secure format)
+uv run meshcap --write-file packets.json --format json
 
-# Write packets to file (TCP connection)
-uv run meshcap --host 192.168.1.50 --write-file packets.bin
+# Write packets to file with format auto-detected from extension
+uv run meshcap --write-file packets.json  # Uses JSON format
+uv run meshcap --write-file packets.pkl   # Uses pickle format (deprecated)
 
-# Read from file with filtering
-uv run meshcap -r packets.bin encrypted and hop_limit '>' 5
+# TCP connection with JSON output
+uv run meshcap --host 192.168.1.50 --write-file packets.json --format json
+```
+
+#### Reading Packets from File
+
+```bash
+# Read from JSON file (secure format)
+uv run meshcap -r packets.json
+
+# Read from file with auto-format detection
+uv run meshcap -r packets.json encrypted and hop_limit '>' 5
+uv run meshcap -r packets.pkl encrypted and hop_limit '>' 5  # Shows deprecation warning
 
 # Limit packet count (works with both serial and TCP)
 uv run meshcap -c 10 priority HIGH or want_ack
@@ -140,10 +154,12 @@ The tool only shows address fields that are present and differ from each other, 
 
 - `--test-mode`: Run in test mode (exit after setup)
 - `--no-resolve/-n`: Disable node name resolution (show raw node numbers/IDs without names)
-- `--write-file/-w`: Write packets to binary file
-- `--read-file/-r`: Read packets from file
+- `--write-file/-w`: Write packets to file (format determined by --format or file extension)
+- `--read-file/-r`: Read packets from file (auto-detects format)
 - `--count/-c`: Exit after N packets
 - `--verbose/-v`: Enable verbose output (show JSON details for unknown packet types)
+- `--format`: File format for writing/reading packets (`json`, `auto` - default: auto)
+- `--cache-size`: Maximum size of the NodeBook cache for node name resolution
 - `filter`: Filter expression
 
 ### Connection Examples

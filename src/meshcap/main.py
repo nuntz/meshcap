@@ -1,7 +1,7 @@
 import argparse
 import sys
 import time
-import pickle
+import os
 import logging
 import threading
 from datetime import datetime, timezone
@@ -11,6 +11,7 @@ from pubsub import pub
 from .filter import parse_filter, evaluate_filter, FilterError
 from .payload_formatter import PayloadFormatter
 from .identifiers import to_node_num, to_user_id, NodeBook
+from .serialization import PacketSerializer
 from . import constants
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,8 @@ class MeshCap:
         self.payload_formatter = PayloadFormatter()
         # Thread synchronization lock for shared state
         self._lock = threading.Lock()
+        # Initialize serializer
+        self.serializer = PacketSerializer()
 
     def _format_hop_info(self, packet: dict) -> str:
         """Format hop information from a packet.
@@ -133,7 +136,14 @@ class MeshCap:
         with self._lock:
             if self.write_file_handle:
                 logger.debug(f"Writing packet to file: {type(packet)}")
-                pickle.dump(packet, self.write_file_handle)
+                # Determine write method based on file mode
+                if hasattr(self.write_file_handle, 'mode') and 'b' in self.write_file_handle.mode:
+                    # Binary mode - use pickle for backwards compatibility
+                    import pickle
+                    pickle.dump(packet, self.write_file_handle)
+                else:
+                    # Text mode - use JSON
+                    self.serializer.serialize_to_json(packet, self.write_file_handle)
 
         # Format and print the packet (outside lock to minimize lock time)
         formatted = self._format_packet(packet, interface, no_resolve, verbose)
@@ -154,19 +164,30 @@ class MeshCap:
                 self.should_exit = True
 
     def _read_packets_from_file(self, filename, no_resolve, verbose=False):
-        """Read pickled packets from a file and process them.
+        """Read packets from a file and process them (supports both JSON and pickle formats).
 
         Args:
-            filename (str): Path to the file containing pickled packets
+            filename (str): Path to the file containing packets
             no_resolve (bool): If True, skip node name resolution
             verbose (bool): If True, show JSON details for unknown packet types
         """
         logger.info(f"Reading packets from file: {filename}")
+        
+        # Check for pickle file and show deprecation warning
+        if filename.lower().endswith('.pkl'):
+            print(f"\nWarning: Pickle files (.pkl) are deprecated due to security concerns.", file=sys.stderr)
+            print(f"Consider converting to JSON format using: meshcap-migrate {filename}", file=sys.stderr)
+            print(f"Future versions may not support pickle files.\n", file=sys.stderr)
+        
         try:
-            with open(filename, "rb") as f:
+            # Determine file mode based on format preference and file extension
+            is_json_format = (hasattr(self.args, 'format') and self.args.format == 'json') or filename.lower().endswith('.json')
+            mode = 'r' if is_json_format else 'rb'
+            
+            with open(filename, mode) as f:
                 while True:
                     try:
-                        packet = pickle.load(f)
+                        packet = self.serializer.deserialize_auto(f)
                         self._on_packet_received(packet, None, no_resolve, verbose)
                     except EOFError:
                         logger.debug("Reached end of file")
@@ -206,9 +227,23 @@ class MeshCap:
         if self.args.write_file:
             try:
                 logger.info(f"Opening write file: {self.args.write_file}")
+                # Determine file mode based on format and extension
+                filename = self.args.write_file
+                use_json = (hasattr(self.args, 'format') and self.args.format == 'json') or filename.lower().endswith('.json')
+                mode = 'w' if use_json else 'wb'
+                
+                # Add extension if none specified
+                if '.' not in os.path.basename(filename):
+                    filename += '.json' if use_json else '.pkl'
+                    
                 with self._lock:
-                    self.write_file_handle = open(self.args.write_file, "wb")
-                print(f"Writing packets to {self.args.write_file}")
+                    self.write_file_handle = open(filename, mode)
+                    
+                format_msg = "JSON" if use_json else "binary (pickle)"
+                print(f"Writing packets to {filename} in {format_msg} format")
+                
+                if not use_json:
+                    print(f"Warning: Writing in pickle format. Consider using JSON format (--format json) for better security.", file=sys.stderr)
             except Exception as e:
                 logger.error(f"Could not open write file '{self.args.write_file}': {e}")
                 print(
@@ -220,7 +255,8 @@ class MeshCap:
         # Connect to device for live capture
         interface = self._connect_to_interface()
         # Initialize NodeBook once per MeshCap instance after connecting
-        self.node_book = NodeBook(interface)
+        cache_size = getattr(self.args, 'cache_size', None)
+        self.node_book = NodeBook(interface, max_size=cache_size) if cache_size else NodeBook(interface)
 
         def packet_handler(packet, interface):
             self._on_packet_received(
@@ -528,7 +564,7 @@ def main():
     parser.add_argument(
         "-w",
         "--write-file",
-        help="Write received packets to specified file in binary format",
+        help="Write received packets to specified file (format determined by --format or file extension)",
     )
     parser.add_argument(
         "-r",
@@ -558,6 +594,17 @@ def main():
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         default="WARNING",
         help="Set logging level (default: WARNING)",
+    )
+    parser.add_argument(
+        "--format",
+        choices=["json", "auto"],
+        default="auto",
+        help="File format for writing/reading packets (default: auto, determines from extension)",
+    )
+    parser.add_argument(
+        "--cache-size",
+        type=int,
+        help="Maximum size of the NodeBook cache for node name resolution",
     )
     parser.add_argument(
         "filter", nargs="*", help="Filter expression (e.g., 'src node A and port text')"
